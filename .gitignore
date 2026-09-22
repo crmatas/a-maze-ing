@@ -1,0 +1,21 @@
+# Python execution cache
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Python virtual enviroments
+.venv/
+env/
+venv/
+
+# Quality control and linting tool caches (Mypy, Flake8, Pytest)
+.mypy_cache/
+.pytest_cache/
+.unittest_cache/
+.rudd_cache/
+
+# Build and distribution artifacts (for generating .whl file)
+build/
+dist/
+*.egg-info/
+EOF
