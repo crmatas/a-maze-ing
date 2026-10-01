@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-import configparser
+from configparser import ConfigParser
 
 """ With dataclass python generates automatically
     __init__"""
@@ -7,12 +7,12 @@ import configparser
 
 @dataclass
 class Config:
-    width: int
-    height: int
-    entry: tuple[int, int]
     exit: tuple[int, int]
     output_file: str
     perfect: bool
+    width: int | None = None
+    height: int | None = None
+    entry: tuple[int, int] = (0, 0)
     seed: int | None = None
     algorithm: str | None = None
 
@@ -23,22 +23,22 @@ def parse_coordinates(value: str) -> tuple[int, int]:
         if len(parts) != 2:
             raise ValueError  """
     try:
-        x, y = int(parts[0].strip(), int(parts[1].strip()))
-            return tuple[int(x), int(y)]
+        parts = value.split(",")
+        x, y = int(parts[0].strip()), int(parts[1].strip())
+        return (x, y)
     except ValueError:
         raise ValueError(f"Invalid coordinates: {value}")
 
 
 def load_config(filename: str) -> Config:
-    parser = configparser.ConfigParser()
     try:
+        parser = ConfigParser()
         with open(filename, "r", encoding="utf-8")as file:
-            content = file.read()
+            parser.read_string("[maze]\n" + file.read())
     except OSError as error:
         raise ValueError(f"Cannot read configuration file {error}")
         # esto es un engaño porque no tenermos un archivo INI sino un txt
         # y estamos usando configparser
-        content = "[maze]\n" + content
         # checks for required keys.
     required = {
         "width",
@@ -48,22 +48,27 @@ def load_config(filename: str) -> Config:
         "output_file",
         "perfect",
     }
-    missing = required - set(section.keys())
+    configMaze = parser["maze"]
+    missing = not required.issubset(set(configMaze.keys()))
     if missing:
         raise ValueError(
             f"Missing required configuration keys {missing}"
         )
     # perfect is declare before bacause mypy error.
-    perfect = section.getboolean("perfect")
+    perfect = configMaze.getboolean("perfect")
     if perfect is None:
         raise ValueError("Invalid value for perfect")
     return Config(
-        width=int(section["width"]),
-        height=int(section["height"]),
-        entry=parse_coordinates(section["entry"]),
-        exit=parse_coordinates(section["exit"]),
-        output_file=section["output_file"],
+        width=configMaze.getint("width"),
+        height=configMaze.getint("height"),
+        entry=parse_coordinates(configMaze["entry"]),
+        exit=parse_coordinates(configMaze["exit"]),
+        output_file=configMaze["output_file"],
         perfect=perfect,
-        seed=section.getint("seed", fallback=None),
-        algorithm=section.get("algorithm", fallback=None),
+        seed=configMaze.getint("seed", fallback=None),
+        algorithm=configMaze.get("algorithm", fallback=None),
     )
+
+
+if __name__ == "__main__":
+    load_config("config.txt")
