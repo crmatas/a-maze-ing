@@ -3,8 +3,8 @@ set -euo pipefail
 
 ESTIMATE_FIELD="Estimate"
 NO_ASSIGNEE="Sin asignar"
+BASE_BRANCH="develop"
 TEMPLATE='## Alcance
-
 
 ## Criterios de aceptación
 - [ ] 
@@ -146,26 +146,41 @@ if [[ ! "$confirm" =~ ^[sS] ]]; then
     exit 0
 fi
 
+read -r -p "¿Crear también una rama desde '$BASE_BRANCH' y cambiarte a ella? [s/N]: " branch_confirm \
+    || branch_confirm=""
+
 args=(--title "$title" --body-file "$body_file" --label "$type_label")
 if [[ "$assignee" != "$NO_ASSIGNEE" ]]; then
     args+=(--assignee "$assignee")
 fi
 
 issue_url=$(gh issue create "${args[@]}")
+issue_number="${issue_url##*/}"
 echo "Issue creada: $issue_url"
 
-[[ -n "$project_id" ]] || exit 0
-
-# item-add returns the existing item if the Project already auto-added the issue.
-if ! item_id=$(gh project item-add "$project_number" --owner "$project_owner" \
-        --url "$issue_url" --format json --jq '.id'); then
-    die "la issue se creó pero no se pudo añadir al Project #$project_number."
+if [[ -n "$project_id" ]]; then
+    # item-add returns the existing item if the Project already auto-added the issue.
+    if item_id=$(gh project item-add "$project_number" --owner "$project_owner" \
+            --url "$issue_url" --format json --jq '.id'); then
+        echo "Añadida al Project #$project_number."
+        if [[ -n "$estimate" ]]; then
+            if gh project item-edit --id "$item_id" --project-id "$project_id" \
+                    --field-id "$field_id" --number "$estimate" >/dev/null; then
+                echo "$ESTIMATE_FIELD = $estimate"
+            else
+                echo "Aviso: la issue está en el Project pero no se pudo guardar la estimación." >&2
+            fi
+        fi
+    else
+        echo "Aviso: la issue se creó pero no se pudo añadir al Project #$project_number." >&2
+    fi
 fi
-echo "Añadida al Project #$project_number."
 
-if [[ -n "$estimate" ]]; then
-    gh project item-edit --id "$item_id" --project-id "$project_id" \
-        --field-id "$field_id" --number "$estimate" >/dev/null \
-        || die "la issue está en el Project pero no se pudo guardar la estimación."
-    echo "$ESTIMATE_FIELD = $estimate"
+if [[ "$branch_confirm" =~ ^[sS] ]]; then
+    if gh issue develop "$issue_number" --base "$BASE_BRANCH" --checkout; then
+        echo "Rama creada y activa: $(git branch --show-current)"
+    else
+        echo "Aviso: no se pudo crear la rama. Puedes hacerlo luego con:" >&2
+        echo "  gh issue develop $issue_number --base $BASE_BRANCH --checkout" >&2
+    fi
 fi
