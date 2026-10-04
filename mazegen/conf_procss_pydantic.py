@@ -32,3 +32,7 @@ class Config(BaseSettings):
 config = Config()
 print(config.entry)  # (10, 20)
 print(config.width)  # 800 (convertido a int)
+print(config.exit)  # (30, 40)
+print(config.perfect)  # True
+print(config.seed)  # None
+print(config.algorithm)  # None
