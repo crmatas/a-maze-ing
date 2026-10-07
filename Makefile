@@ -1,46 +1,89 @@
-.PHONY: help setup check-tools install hooks gh-auth issue
-GH_BIN := $(HOME)/.local/bin
+.DEFAULT_GOAL := help
+.PHONY: help setup install setup-dev setup-wsl setup-gh check-poetry check-apt check-wsl check-gh gh-auth issue pr
+
+GH_KEYRING := /etc/apt/keyrings/githubcli-archive-keyring.gpg
+GH_SOURCE := /etc/apt/sources.list.d/github-cli.list
 
 help:
-	@echo "make setup  -> entorno poetry + hooks de pre-commit + autenticacion de gh"
-	@echo "make issue  -> crear una issue (script interactivo)"
+	@echo "make install    -> instalar dependencias principales"
+	@echo "make setup-dev -> instalar dependencias dev y hooks"
+	@echo "make setup-wsl -> instalar dependencias nativas de MiniLibX en Ubuntu/WSL"
+	@echo "make setup-gh  -> instalar/actualizar gh y autenticarlo"
+	@echo "make issue     -> crear una issue interactiva (requiere gh autenticado)"
+	@echo "make pr        -> crear un pull request (requiere gh autenticado)"
 
-setup: check-tools install hooks gh-auth install-gh
-	@echo "Entorno listo."
+setup: setup-dev
 
-check-tools:
-	@command -v poetry >/dev/null || { echo "Falta poetry: https://python-poetry.org/docs/#installation"; exit 1; }
-	@command -v gh >/dev/null || { echo "Falta gh: https://cli.github.com"; exit 1; }
+check-poetry:
+	@command -v poetry >/dev/null || { echo "Falta Poetry: https://python-poetry.org/docs/#installation"; exit 1; }
 
-install:
-	poetry install
+check-apt:
+	@command -v apt-get >/dev/null || { echo "Este target requiere Ubuntu o Debian con APT."; exit 1; }
+	@. /etc/os-release; \
+	case "$$ID" in ubuntu|debian) ;; *) echo "Distribucion no soportada: $$ID."; exit 1 ;; esac
 
-hooks:
+check-wsl: check-apt
+	@grep -qi microsoft /proc/sys/kernel/osrelease || { echo "Este target debe ejecutarse dentro de WSL."; exit 1; }
+	@. /etc/os-release; \
+	[ "$$ID" = ubuntu ] || { echo "Este target requiere Ubuntu en WSL; detectado: $$ID."; exit 1; }
+
+install: check-poetry
+	poetry install --only main
+
+setup-dev: check-poetry
+	poetry install --with dev
 	poetry run pre-commit install
+	@echo "Entorno de desarrollo listo."
 
-install-gh:
-	@if command -v gh >/dev/null 2>&1; then \
-		echo "gh ya esta instalado."; \
+setup-wsl: check-wsl
+	sudo apt-get update
+	sudo apt-get install -y libxcb-keysyms1 libvulkan1
+	@echo "Dependencias nativas de MiniLibX instaladas."
+
+setup-gh: check-apt
+	sudo apt-get update
+	sudo apt-get install -y ca-certificates curl
+	sudo install -d -m 755 /etc/apt/keyrings
+	sudo curl -fsSL -o $(GH_KEYRING) https://cli.github.com/packages/githubcli-archive-keyring.gpg
+	sudo chmod go+r $(GH_KEYRING)
+	printf 'deb [arch=%s signed-by=%s] https://cli.github.com/packages stable main\n' "$$(dpkg --print-architecture)" "$(GH_KEYRING)" | sudo tee $(GH_SOURCE) >/dev/null
+	sudo apt-get update
+	sudo apt-get install -y gh
+	@installed=$$(gh version | awk 'NR == 1 { print $$3 }'); \
+	candidate=$$(apt-cache policy gh | awk '/Candidate:/ { print $$2 }'); \
+	if ! dpkg --compare-versions "$$installed" ge "$$candidate"; then \
+		echo "Aviso: gh $$installed es anterior a la version APT disponible $$candidate."; \
 	else \
-		echo "Instalando gh en $(GH_BIN)..."; \
-		mkdir -p $(GH_BIN); \
-		VER=$$(curl -s https://api.github.com/repos/cli/cli/releases/latest | grep -m1 '"tag_name"' | sed 's/.*"v\([^"]*\)".*/\1/'); \
-		curl -sL https://github.com/cli/cli/releases/download/v$$VER/gh_$${VER}_linux_amd64.tar.gz \
-			| tar -xz -C /tmp; \
-		cp /tmp/gh_$${VER}_linux_amd64/bin/gh $(GH_BIN)/gh; \
-		echo "Asegurate de que $(GH_BIN) esta en tu PATH."; \
+		echo "gh $$installed esta actualizado segun APT."; \
 	fi
+	$(MAKE) gh-auth
 
 gh-auth:
 	@if ! gh auth status >/dev/null 2>&1; then \
-		echo "Autenticando gh (se abrira el flujo interactivo)..."; \
-		gh auth login --scopes project; \
-	elif ! gh auth status 2>&1 | grep -q "project"; then \
-		echo "Anadiendo el scope 'project' a tu sesion de gh..."; \
-		gh auth refresh --scopes project; \
+		echo "Autenticando gh con scopes repo y project..."; \
+		gh auth login --scopes repo,project; \
 	else \
-		echo "gh ya esta autenticado con el scope 'project'."; \
+		status="$$(gh auth status 2>&1)"; \
+		if ! printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'repo'" \
+			|| ! printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'project'"; then \
+			echo "Actualizando scopes de gh a repo,project..."; \
+			gh auth refresh --scopes repo,project; \
+		else \
+			echo "gh ya esta autenticado con los scopes necesarios."; \
+		fi; \
 	fi
 
-issue: check-tools
+check-gh:
+	@command -v gh >/dev/null || { echo "Falta gh; ejecuta 'make setup-gh'."; exit 1; }
+	@gh auth status >/dev/null 2>&1 || { echo "gh no esta autenticado; ejecuta 'make setup-gh'."; exit 1; }
+	@status="$$(gh auth status 2>&1)"; \
+	printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'repo'" \
+		|| { echo "Falta el scope repo; ejecuta 'make setup-gh'."; exit 1; }; \
+	printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'project'" \
+		|| { echo "Falta el scope project; ejecuta 'make setup-gh'."; exit 1; }
+
+issue: check-gh
 	@./scripts/new_issue.sh
+
+pr: check-gh
+	@./scripts/new_pull_request.sh

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 OWNER=$(gh repo view --json owner --jq .owner.login)
 
 mapfile -t PROJECTS < <(gh project list --owner "$OWNER" --format json --jq '.projects[].title')
