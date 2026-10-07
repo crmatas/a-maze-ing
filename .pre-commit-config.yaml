@@ -1,4 +1,5 @@
 default_install_hook_types: [pre-commit, pre-push]
+exclude: ^mlx-inspect/
 repos:
   - repo: local
     hooks:

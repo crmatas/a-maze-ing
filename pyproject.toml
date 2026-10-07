@@ -8,11 +8,7 @@ authors = [
 license = "MIT"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "pydantic-settings (>=2.15.0,<3.0.0)",
-    "flake8 (>=7.4.1,<8.0.0)",
-    "mypy (>=2.4.0,<3.0.0)"
-]
+dependencies = []
 
 [tool.mypy]
 plugins = [
@@ -28,10 +24,10 @@ warn_required_dynamic_aliases = true
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[dependency-groups]
-dev = [
-    "pytest (>=9.1.1,<10.0.0)",
-    "mypy (>=2.4.0,<3.0.0)",
-    "flake8 (>=7.4.1,<8.0.0)",
-    "pre-commit (>=4.6.2,<5.0.0)",
-]
+[tool.poetry.group.dev.dependencies]
+pydantic-settings = ">=2.15.0,<3.0.0"
+pytest = ">=9.1.1,<10.0.0"
+mypy = ">=2.4.0,<3.0.0"
+flake8 = ">=7.4.1,<8.0.0"
+pre-commit = ">=4.6.2,<5.0.0"
+mlx = { path = "mlx-2.2/ubuntu/mlx-2.2-py3-none-any.whl" }
