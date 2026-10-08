@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup install setup-dev setup-wsl setup-gh check-poetry check-apt check-wsl check-gh gh-auth issue pr
+.PHONY: help setup install setup-dev setup-wsl setup-gh check-poetry check-apt check-wsl check-gh gh-auth issue pr lint lint-strict debug clean
 
 GH_KEYRING := /etc/apt/keyrings/githubcli-archive-keyring.gpg
 GH_SOURCE := /etc/apt/sources.list.d/github-cli.list
@@ -14,8 +14,13 @@ help:
 	@echo "make lint        -> ejecutar flake8 y mypy con los flags requeridos"
 	@echo "make lint-strict -> ejecutar flake8 y mypy --strict"
 	@echo "make debug      	-> ejecutar a_maze_ing.py con pdb"
+	@echo "make clean      	-> limpiar archivos generados"
 
-setup: setup-dev
+
+clean:
+	@echo "Limpiando archivos generados..."
+	@rm -rf __pycache__ *.pyc *.pyo .pytest_cache
+	@echo "Limpieza finalizada."
 
 check-poetry:
 	@command -v poetry >/dev/null || { echo "Falta Poetry: https://python-poetry.org/docs/#installation"; exit 1; }
@@ -31,6 +36,7 @@ check-wsl: check-apt
 	[ "$$ID" = ubuntu ] || { echo "Este target requiere Ubuntu en WSL; detectado: $$ID."; exit 1; }
 
 install: check-poetry
+	@echo "Instalando dependencias principales..."
 	poetry install --only main
 
 lint: check-poetry
@@ -42,19 +48,23 @@ lint-strict: check-poetry
 	poetry run mypy . --strict
 
 debug: check-poetry
+	@echo "Ejecutando a_maze_ing.py con pdb..."
 	poetry run python -m pdb a_maze_ing.py config.txt
 
 setup-dev: check-poetry
+	@echo "Configurando entorno de desarrollo..."
 	poetry install --with dev
 	poetry run pre-commit install
 	@echo "Entorno de desarrollo listo."
 
 setup-wsl: check-wsl
+	@echo "Configurando entorno WSL..."
 	sudo apt-get update
 	sudo apt-get install -y libxcb-keysyms1 libvulkan1
 	@echo "Dependencias nativas de MiniLibX instaladas."
 
 setup-gh: check-apt
+	@echo "Configurando entorno de GitHub CLI..."
 	sudo apt-get update
 	sudo apt-get install -y ca-certificates curl
 	sudo install -d -m 755 /etc/apt/keyrings
