@@ -5,12 +5,15 @@ GH_KEYRING := /etc/apt/keyrings/githubcli-archive-keyring.gpg
 GH_SOURCE := /etc/apt/sources.list.d/github-cli.list
 
 help:
-	@echo "make install    -> instalar dependencias principales"
-	@echo "make setup-dev -> instalar dependencias dev y hooks"
-	@echo "make setup-wsl -> instalar dependencias nativas de MiniLibX en Ubuntu/WSL"
-	@echo "make setup-gh  -> instalar/actualizar gh y autenticarlo"
-	@echo "make issue     -> crear una issue interactiva (requiere gh autenticado)"
-	@echo "make pr        -> crear un pull request (requiere gh autenticado)"
+	@echo "make install    	-> instalar dependencias principales"
+	@echo "make setup-dev 	-> instalar dependencias dev y hooks"
+	@echo "make setup-wsl 	-> instalar dependencias nativas de MiniLibX en Ubuntu/WSL"
+	@echo "make setup-gh  	-> instalar/actualizar gh y autenticarlo"
+	@echo "make issue     	-> crear una issue interactiva (requiere gh autenticado)"
+	@echo "make pr        	-> crear un pull request (requiere gh autenticado)"
+	@echo "make lint        -> ejecutar flake8 y mypy con los flags requeridos"
+	@echo "make lint-strict -> ejecutar flake8 y mypy --strict"
+	@echo "make debug      	-> ejecutar a_maze_ing.py con pdb"
 
 setup: setup-dev
 
@@ -29,6 +32,17 @@ check-wsl: check-apt
 
 install: check-poetry
 	poetry install --only main
+
+lint: check-poetry
+	poetry run flake8 .
+	poetry run mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+
+lint-strict: check-poetry
+	poetry run flake8 .
+	poetry run mypy . --strict
+
+debug: check-poetry
+	poetry run python -m pdb a_maze_ing.py config.txt
 
 setup-dev: check-poetry
 	poetry install --with dev
