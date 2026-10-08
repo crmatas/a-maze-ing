@@ -107,7 +107,7 @@ check-gh:
 		|| { echo "Falta el scope project; ejecuta 'make setup-gh'."; exit 1; }
 
 issue: check-gh
-	@./scripts/new_issue.sh
+	@./dev-utils/scripts/new_issue.sh
 
 pr: check-gh
-	@./scripts/new_pull_request.sh
+	@./dev-utils/scripts/new_pull_request.sh
