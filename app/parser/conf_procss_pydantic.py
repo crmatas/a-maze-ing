@@ -9,13 +9,13 @@ class Config(BaseSettings):
     height: int
     entry: Annotated[Tuple[int, int], NoDecode]
     exit: Annotated[Tuple[int, int], NoDecode]
+    output_file: Annotated[str, NoDecode]
     perfect: bool = True
     seed: Optional[int] = None
     algorithm: Optional[str] = None
 
     # Configuración para indicarle qué archivo leer
     model_config = SettingsConfigDict(
-        env_file="config.txt",
         env_file_encoding="utf-8",
         extra="ignore",  # Ignora claves extra que no estén en la clase
     )
