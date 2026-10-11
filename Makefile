@@ -1,0 +1,98 @@
+.DEFAULT_GOAL := help
+.PHONY: help setup install setup-dev setup-wsl setup-gh check-poetry check-apt check-wsl check-gh gh-auth issue pr lint lint-strict debug clean
+
+GH_KEYRING := /etc/apt/keyrings/githubcli-archive-keyring.gpg
+GH_SOURCE := /etc/apt/sources.list.d/github-cli.list
+
+help:
+	@echo "make install    	-> instalar dependencias principales"
+	@echo "make setup-dev 	-> instalar dependencias dev y hooks"
+	@echo "make setup-wsl 	-> instalar dependencias nativas de MiniLibX en Ubuntu/WSL"
+	@echo "make setup-gh  	-> instalar/actualizar gh y autenticarlo"
+	@echo "make issue     	-> crear una issue interactiva (requiere gh autenticado)"
+	@echo "make pr        	-> crear un pull request (requiere gh autenticado)"
+	@echo "make lint        -> ejecutar flake8 y mypy con los flags requeridos"
+	@echo "make lint-strict -> ejecutar flake8 y mypy --strict"
+	@echo "make debug      	-> ejecutar a_maze_ing.py con pdb"
+	@echo "make clean      	-> limpiar archivos generados"
+
+
+clean:
+	@echo "Limpiando archivos generados..."
+	@rm -rf __pycache__ *.pyc *.pyo .pytest_cache
+	@echo "Limpieza finalizada."
+
+check-poetry:
+	@command -v poetry >/dev/null || { echo "Falta Poetry: https://python-poetry.org/docs/#installation"; exit 1; }
+
+check-apt:
+	@command -v apt-get >/dev/null || { echo "Este target requiere Ubuntu o Debian con APT."; exit 1; }
+	@. /etc/os-release; \
+	case "$$ID" in ubuntu|debian) ;; *) echo "Distribucion no soportada: $$ID."; exit 1 ;; esac
+
+check-wsl: check-apt
+	@grep -qi microsoft /proc/sys/kernel/osrelease || { echo "Este target debe ejecutarse dentro de WSL."; exit 1; }
+	@. /etc/os-release; \
+	[ "$$ID" = ubuntu ] || { echo "Este target requiere Ubuntu en WSL; detectado: $$ID."; exit 1; }
+
+install: check-poetry
+	@echo "Instalando dependencias principales..."
+	poetry install --only main
+
+lint: check-poetry
+	poetry run flake8 .
+	poetry run mypy . --warn-return-any --warn-unused-ignores --ignore-missing-imports --disallow-untyped-defs --check-untyped-defs
+
+lint-strict: check-poetry
+	poetry run flake8 .
+	poetry run mypy . --strict
+
+debug: check-poetry
+	@echo "Ejecutando a_maze_ing.py con pdb..."
+	poetry run python -m pdb a_maze_ing.py config.txt
+
+setup-dev: check-poetry
+	@echo "Configurando entorno de desarrollo..."
+	poetry install --with dev
+	poetry run pre-commit install
+	@echo "Entorno de desarrollo listo."
+
+setup-wsl: check-wsl
+	@echo "Configurando entorno WSL..."
+	sudo apt-get update
+	sudo apt-get install -y libxcb-keysyms1 libvulkan1
+	@echo "Dependencias nativas de MiniLibX instaladas."
+
+setup-gh:
+	@./dev-utils/scripts/setup_gh.sh
+	PATH="$$HOME/.local/bin:$$PATH" $(MAKE) gh-auth
+
+gh-auth:
+	@if ! gh auth status >/dev/null 2>&1; then \
+		echo "Autenticando gh con scopes repo y project..."; \
+		gh auth login --scopes repo,project; \
+	else \
+		status="$$(gh auth status 2>&1)"; \
+		if ! printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'repo'" \
+			|| ! printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'project'"; then \
+			echo "Actualizando scopes de gh a repo,project..."; \
+			gh auth refresh --scopes repo,project; \
+		else \
+			echo "gh ya esta autenticado con los scopes necesarios."; \
+		fi; \
+	fi
+
+check-gh:
+	@command -v gh >/dev/null || { echo "Falta gh; ejecuta 'make setup-gh'."; exit 1; }
+	@gh auth status >/dev/null 2>&1 || { echo "gh no esta autenticado; ejecuta 'make setup-gh'."; exit 1; }
+	@status="$$(gh auth status 2>&1)"; \
+	printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'repo'" \
+		|| { echo "Falta el scope repo; ejecuta 'make setup-gh'."; exit 1; }; \
+	printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'project'" \
+		|| { echo "Falta el scope project; ejecuta 'make setup-gh'."; exit 1; }
+
+issue: check-gh
+	@./dev-utils/scripts/new_issue.sh
+
+pr: check-gh
+	@./dev-utils/scripts/new_pull_request.sh

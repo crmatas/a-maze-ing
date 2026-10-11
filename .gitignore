@@ -1,3 +1,6 @@
+# VS Code
+.vscode/
+
 # Python execution cache
 **/__pycache__/
 *.py[cod]

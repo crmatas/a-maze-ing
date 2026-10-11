@@ -3,23 +3,39 @@ name = "mazegen"
 version = "0.1.0"
 description = "Maze generator package"
 authors = [
-    {name = "Your Name",email = "you@example.com"}
+    {name = "crmatas-", email = "crmatas-@student.42malaga.com"}, {name = "lupin", email = "lupin@student.42malaga.com"}
 ]
-license = "MIT"
+license-files = ["LICENSE.md"]
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "pydantic-settings (>=2.15.0,<3.0.0)"
-]
+dependencies = []
 
+[project.urls]
+repository = "https://github.com/crmatas/a-maze-ing"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[dependency-groups]
-dev = [
-    "pytest (>=9.1.1,<10.0.0)",
-    "mypy (>=2.4.0,<3.0.0)",
-    "flake8 (>=7.4.1,<8.0.0)"
-]
+[tool.poetry]
+packages = [{include = "mazegen"}]
+
+[tool.mypy]
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.poetry.group.dev.dependencies]
+pydantic-settings = ">=2.15.0,<3.0.0"
+pytest = ">=9.1.1,<10.0.0"
+mypy = ">=2.4.0,<3.0.0"
+flake8 = ">=7.4.1,<8.0.0"
+pre-commit = ">=4.6.2,<5.0.0"
+mlx = { path = "app/mlx-2.2/ubuntu/mlx-2.2-py3-none-any.whl" }
