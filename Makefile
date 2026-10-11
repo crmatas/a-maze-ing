@@ -63,24 +63,9 @@ setup-wsl: check-wsl
 	sudo apt-get install -y libxcb-keysyms1 libvulkan1
 	@echo "Dependencias nativas de MiniLibX instaladas."
 
-setup-gh: check-apt
-	@echo "Configurando entorno de GitHub CLI..."
-	sudo apt-get update
-	sudo apt-get install -y ca-certificates curl
-	sudo install -d -m 755 /etc/apt/keyrings
-	sudo curl -fsSL -o $(GH_KEYRING) https://cli.github.com/packages/githubcli-archive-keyring.gpg
-	sudo chmod go+r $(GH_KEYRING)
-	printf 'deb [arch=%s signed-by=%s] https://cli.github.com/packages stable main\n' "$$(dpkg --print-architecture)" "$(GH_KEYRING)" | sudo tee $(GH_SOURCE) >/dev/null
-	sudo apt-get update
-	sudo apt-get install -y gh
-	@installed=$$(gh version | awk 'NR == 1 { print $$3 }'); \
-	candidate=$$(apt-cache policy gh | awk '/Candidate:/ { print $$2 }'); \
-	if ! dpkg --compare-versions "$$installed" ge "$$candidate"; then \
-		echo "Aviso: gh $$installed es anterior a la version APT disponible $$candidate."; \
-	else \
-		echo "gh $$installed esta actualizado segun APT."; \
-	fi
-	$(MAKE) gh-auth
+setup-gh:
+	@./dev-utils/scripts/setup_gh.sh
+	PATH="$$HOME/.local/bin:$$PATH" $(MAKE) gh-auth
 
 gh-auth:
 	@if ! gh auth status >/dev/null 2>&1; then \
