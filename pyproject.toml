@@ -39,3 +39,5 @@ mypy = ">=2.4.0,<3.0.0"
 flake8 = ">=7.4.1,<8.0.0"
 pre-commit = ">=4.6.2,<5.0.0"
 mlx = { path = "app/mlx-2.2/ubuntu/mlx-2.2-py3-none-any.whl" }
+markitdown = {extras = ["all"], version = "^0.1.8", python = ">=3.10,<3.15"}
+onnxruntime = {version = ">=1.17,<1.24", python = ">=3.10,<3.15"}
