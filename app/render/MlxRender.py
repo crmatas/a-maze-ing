@@ -80,9 +80,11 @@ class MlxRender():
         self._last_update = now
 
         color = self._random_color()
-        self._frame_buffer.fill(color)
-        self._mlx.mlx_put_image_to_window(self._mlx_ptr, self._win_ptr,
-                                          self._frame_buffer._image_ptr, 0, 0)
+        if (self._frame_buffer is not None):
+            self._frame_buffer.fill(color)
+            self._mlx.mlx_put_image_to_window(self._mlx_ptr, self._win_ptr,
+                                              self._frame_buffer._image_ptr,
+                                              0, 0)
 
     def close(self) -> None:
         """Release the framebuffer, window, and MiniLibX connection."""
@@ -161,6 +163,9 @@ class Framebuffer():
             pixel = bytes((color[3], color[2], color[1], color[0]))
         else:
             raise RuntimeError("Image format not recognaized")
+
+        if (self._image_data is None):
+            return
 
         for offset in range(0, len(self._image_data), self._bytes_per_pixel):
             self._image_data[offset:offset + self._bytes_per_pixel] = pixel
