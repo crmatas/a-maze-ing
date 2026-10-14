@@ -5,7 +5,7 @@ Run the commands below from the repository root.
 
 ## Requirements
 
-- Python 3.10 or newer.
+- Python 3.12 or newer.
 - Poetry.
 - Ubuntu on WSL for installing MiniLibX's native dependencies.
 
@@ -37,7 +37,7 @@ make install
 
 Project and tool configuration lives in `pyproject.toml`; this repository does not use a `poetry.toml` file.
 
-- `[project]` contains package metadata and sets the minimum Python version to 3.10.
+- `[project]` contains package metadata, sets the minimum Python version to 3.12, and declares NumPy as a runtime dependency.
 - `[tool.poetry.group.dev.dependencies]` contains development dependencies: `pydantic-settings`, `pytest`, `mypy`, `flake8`, `pre-commit`, and the local Ubuntu MiniLibX wheel.
 - `[tool.mypy]` enables the Pydantic plugin.
 - `[[tool.mypy.overrides]]` ignores missing type stubs for `mlx` when mypy is run with the project configuration alone. The `make lint` target also passes `--ignore-missing-imports`, which suppresses missing-import diagnostics globally for that command.
