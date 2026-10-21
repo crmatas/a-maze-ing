@@ -38,7 +38,7 @@ make install
 Project and tool configuration lives in `pyproject.toml`; this repository does not use a `poetry.toml` file.
 
 - `[project]` contains package metadata, sets the minimum Python version to 3.12, and declares NumPy as a runtime dependency.
-- `[tool.poetry.group.dev.dependencies]` contains development dependencies: `pydantic-settings`, `pytest`, `mypy`, `flake8`, `pre-commit`, and the local Ubuntu MiniLibX wheel.
+- `[tool.poetry.group.dev.dependencies]` contains development dependencies: `pytest`, `mypy`, `flake8`, `pre-commit`, and the local Ubuntu MiniLibX wheel. `pydantic-settings` is a runtime dependency because the application parser imports it.
 - `[tool.mypy]` enables the Pydantic plugin.
 - `[[tool.mypy.overrides]]` ignores missing type stubs for `mlx` when mypy is run with the project configuration alone. The `make lint` target also passes `--ignore-missing-imports`, which suppresses missing-import diagnostics globally for that command.
 - `[tool.pydantic-mypy]` configures the Pydantic mypy plugin.
