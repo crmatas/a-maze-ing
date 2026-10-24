@@ -1,3 +1,4 @@
+"""Deprecated PoC. Use app.render.mlx_render.MlxRender instead."""
 import random
 from dataclasses import dataclass
 from typing import Sequence
@@ -24,41 +25,54 @@ class MlxRender():
         self._maze = maze
         self._tile_size = tile_size
         self.window_title = window_title
-        self._width = width * tile_size
-        self._height = height * tile_size
-        self._is_running = False
+        self._width = width
+        self._height = height
+        self._is_initializening = False
         self._mlx = Mlx()
         self._mlx_ptr = None
         self._win_ptr = None
         self._frame_buffer: Framebuffer | None = None
         self._last_update = 0.0
-        self._update_interval = 0.1
+        self._show_interval = 0.3
+        self._hide_interval = 0.05
+        self._column = 0
+        self._row = 0
+        self._reset_cell = False
 
-    def close_hook(self, dummy):
+    def _close_hook(self, dummy):
         """Ask MiniLibX to stop its event loop when the window is closed."""
         if self._mlx_ptr is not None:
             self._mlx.mlx_loop_exit(self._mlx_ptr)
 
-    def _run(self) -> None:
+    def _speed(self, keynum):
+        match keynum:
+            case 65361:
+                self._show_interval -= 0.01
+            case 65363:
+                self._show_interval += 0.01
+
+    def _initialize(self) -> None:
         """Create the MiniLibX connection, window, and framebuffer image."""
-        if self._is_running:
+        if self._is_initializening:
             return
-        else:
-            self._is_running = True
-            self._frame_buffer = Framebuffer(self._width, self._height)
         try:
+            self._is_initializening = True
+            window_width = self._width * self._tile_size
+            window_height = self._height * self._tile_size
+            self._frame_buffer = Framebuffer(window_width, window_height)
             self._mlx_ptr = self._mlx.mlx_init()
             if not self._mlx_ptr:
                 raise RuntimeError("Failed to initialize MiniLibX")
             self._win_ptr = self._mlx.mlx_new_window(self._mlx_ptr,
-                                                     self._width,
-                                                     self._height,
+                                                     window_width,
+                                                     window_height,
                                                      self.window_title)
             if not self._win_ptr:
                 raise RuntimeError("Failed to create the MiniLibX window")
 
             self._mlx.mlx_clear_window(self._mlx_ptr, self._win_ptr)
-            self._mlx.mlx_hook(self._win_ptr, 33, 0, self.close_hook, None)
+            self._mlx.mlx_hook(self._win_ptr, 33, 0, self._close_hook, None)
+            self._mlx.mlx_key_hook(self._win_ptr, self._speed, None)
             self._frame_buffer.initialize(self._mlx, self._mlx_ptr)
         except Exception as e:
             print(e)
@@ -66,25 +80,44 @@ class MlxRender():
     def render(self) -> None:
         """Start the event loop and update the displayed image."""
         try:
-            self._run()
-            self._mlx.mlx_loop_hook(self._mlx_ptr, self._on_loop, None)
+            self._initialize()
+            self._mlx.mlx_loop_hook(self._mlx_ptr, self._on_loop,
+                                    param=self._random_color())
             self._mlx.mlx_loop(self._mlx_ptr)
         finally:
             self.close()
 
-    def _on_loop(self, dummy) -> None:
+    def _on_loop(self, color) -> None:
         """Update the framebuffer at regular intervals."""
+
+        if not self._reset_cell and self._frame_buffer is not None:
+            self.fill_cell(color, self._column, self._row)
+            self._mlx.mlx_put_image_to_window(self._mlx_ptr,
+                                              self._win_ptr,
+                                              self._frame_buffer._image_ptr,
+                                              0, 0)
+            self._reset_cell = True
+
         now = perf_counter()
-        if now - self._last_update < self._update_interval:
+        if now - self._last_update < self._show_interval:
             return
         self._last_update = now
 
-        color = self._random_color()
         if (self._frame_buffer is not None):
-            self._frame_buffer.fill(color)
+            self.fill_cell([0, 0, 0, 255], self._column, self._row)
             self._mlx.mlx_put_image_to_window(self._mlx_ptr, self._win_ptr,
                                               self._frame_buffer._image_ptr,
                                               0, 0)
+        self._reset_cell = False
+
+        if self._column < self._width - 1:
+            self._column += 1
+        elif self._row < self._height - 1:
+            self._column = 0
+            self._row += 1
+        else:
+            self._column = 0
+            self._row = 0
 
     def close(self) -> None:
         """Release the framebuffer, window, and MiniLibX connection."""
@@ -112,7 +145,7 @@ class MlxRender():
             print(e)
             print("Error to release the mlx instance")
 
-        self._is_running = False
+        self._is_initializening = False
 
     def _random_color(self) -> list[int]:
         """Return a random opaque RGBA colour for the rendering test."""
@@ -122,13 +155,26 @@ class MlxRender():
         alpha = 255
         return ([red, green, blue, alpha])
 
+    def fill_cell(self, color: list[int], x: int = 0, y: int = 0) -> None:
+        """Complete a cell in the framebuffer with the given RGBA colour."""
+        pixel_x_init = x * self._tile_size
+        pixel_y_init = y * self._tile_size
+        for px_y in range(pixel_y_init, pixel_y_init + self._tile_size):
+            for px_x in range(pixel_x_init, pixel_x_init + self._tile_size):
+                self._frame_buffer.fill_px(color, px_x, px_y)
+
+    def cell_in_range(self, x: int = 0, y: int = 0) -> bool:
+        if (0 <= x < self._width and 0 <= y < self._height):
+            return True
+        return False
+
 
 @dataclass
 class Framebuffer():
     """Store an image in memory before sending it to the window."""
 
-    width: int
-    height: int
+    width_px: int
+    height_px: int
     _image_ptr: object | None = None
     _image_data: memoryview | None = None
     _bits_per_pixel: int = 0
@@ -138,7 +184,8 @@ class Framebuffer():
 
     def initialize(self, mlx: Mlx, mlx_ptr: object) -> None:
         """Create the image and expose its pixel memory."""
-        self._image_ptr = mlx.mlx_new_image(mlx_ptr, self.width, self.height)
+        self._image_ptr = mlx.mlx_new_image(mlx_ptr, self.width_px,
+                                            self.height_px)
 
         if not self._image_ptr:
             raise RuntimeError("Failed to initialize the image")
@@ -155,8 +202,8 @@ class Framebuffer():
             self._image_ptr = None
             self._image_data = None
 
-    def fill(self, color: list[int]) -> None:
-        """Fill every pixel in the image with the given RGBA colour."""
+    def fill_px(self, color: list[int], x: int = 0, y: int = 0) -> None:
+        """Fill_px every pixel in the image with the given RGBA colour."""
         if self._image_format == 0:
             pixel = bytes((color[0], color[1], color[2], color[3]))
         elif self._image_format == 1:
@@ -166,9 +213,9 @@ class Framebuffer():
 
         if (self._image_data is None):
             return
-
-        for offset in range(0, len(self._image_data), self._bytes_per_pixel):
-            self._image_data[offset:offset + self._bytes_per_pixel] = pixel
+        # offset = y * _size_line + x * _bytes_per_pixel
+        px = y * self._size_line + x * self._bytes_per_pixel
+        self._image_data[px:px + self._bytes_per_pixel] = pixel
 
 
 def main() -> None:
