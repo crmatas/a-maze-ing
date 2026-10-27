@@ -146,7 +146,7 @@ class MazeGenerator:
             pass
 
     #  Two method that use solver to export file.
-    def path_to_letters(self, cells: list[Coord]) -> str:
+    def _path_to_letters(self, cells: list[Coord]) -> str:
         """ Converts path cells into direction letters """
         return "".join(
             DIRECTION_LETTERS[(x2 - x1, y2 - y1)]
