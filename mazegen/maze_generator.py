@@ -1,34 +1,19 @@
-from collections import deque
+from mazegen.solutions.bfssolver import BfsSolver
 from collections.abc import Iterator
+
 import numpy as np
+
 import random
 
-# Coordinate in (x, y) order.
-Coord = tuple[int, int]
-# Generation event: (type, source_x, source_y, destination_x, destination_y).
-Step = tuple[str, int, int, int, int]
-
-# Wall bitmasks, stored in each cell.
-NORTH: int = 1  # 0b0001 (bit 0)
-EAST: int = 2  # 0b0010 (bit 1)
-SOUTH: int = 4  # 0b0100 (bit 2)
-WEST: int = 8  # 0b1000 (bit 3)
-
-# For each movement offset, map the source and neighboring cell walls.
-WALL_DIRECTIONS: dict[tuple[int, int], tuple[int, int]] = {
-    (0, -1): (NORTH, SOUTH),  # Move north; remove south from the neighbor.
-    (1, 0): (EAST, WEST),  # Move east; remove west from the neighbor.
-    (0, 1): (SOUTH, NORTH),  # Move south; remove north from the neighbor.
-    (-1, 0): (WEST, EAST),  # Move west; remove east from the neighbor.
-}
-
-# Map movement offsets to letters used in the exported solution.
-DIRECTION_LETTERS: dict[Coord, str] = {
-    (0, -1): "N",
-    (1, 0): "E",
-    (0, 1): "S",
-    (-1, 0): "W",
-}
+from mazegen.constants import (
+    Coord,
+    Step,
+    WALL_DIRECTIONS,
+    PATTERN_HEIGHT,
+    PATTERN_WIDTH,
+    PATTERN_42,
+    DIRECTION_LETTERS,
+)
 
 
 class MazeGenerator:
@@ -69,6 +54,7 @@ class MazeGenerator:
         self.grid: np.ndarray = np.full(
             (self.height, self.width), 15, dtype=np.uint8
         )
+        self.blocked: frozenset[Coord] = self._get_blocked_42()
 
     def init_generation_structures(self) -> tuple[
         np.ndarray, list[Coord]
@@ -76,9 +62,33 @@ class MazeGenerator:
         """Create the visited-cell array and DFS stack for generation."""
         visited = np.zeros((self.height, self.width), dtype=bool)
         start_x, start_y = self.entry
+        for bx, by in self.blocked:
+            visited[by, bx] = True
         visited[start_y, start_x] = True
         stack: list[Coord] = [(start_x, start_y)]
         return visited, stack
+
+#  If it does not fit will raise a message controlled on main
+    @property
+    def has_42(self) -> bool:
+        return bool(self.blocked)
+
+    def _get_blocked_42(self) -> frozenset[Coord]:
+        if self.width < PATTERN_WIDTH + 2 or self.height < PATTERN_HEIGHT + 2:
+            print("Warning Maze is too small for '42' pattern:"
+                  "Generating without it!")
+            return frozenset()
+        #  Calculate the offset to center the pattern.
+        offset_x = (self.width - PATTERN_WIDTH) // 2
+        offset_y = (self.height - PATTERN_HEIGHT) // 2
+        #  Create absolute coords: relative plus offset.abs
+        blocked = {
+            (x + offset_x, y + offset_y)
+            for x, y in PATTERN_42
+        }
+        if self.entry in blocked or self.exit in blocked:
+            raise ValueError("Entry or Exit colides with '42' pattern")
+        return frozenset(blocked)
 
     def _get_unvisited_neighbors(
         self, x: int, y: int, visited: np.ndarray
@@ -113,6 +123,8 @@ class MazeGenerator:
         visited, stack = self.init_generation_structures()
         start_x, start_y = self.entry
         yield ("start", start_x, start_y, start_x, start_y)
+        for bx, by in self.blocked:
+            yield ("Blocked", bx, by, bx, by)
         while stack:
             current_x, current_y = stack[-1]
             neighbors = self._get_unvisited_neighbors(
@@ -133,36 +145,18 @@ class MazeGenerator:
         for _ in self.generate_steps():
             pass
 
-    def solve(self) -> str:
-        """Return a shortest path from entry to exit using N/E/S/W letters."""
-        prev: dict[Coord, tuple[Coord, str] | None] = {self.entry: None}
-        queue: deque[Coord] = deque([self.entry])
+    #  Two method that use solver to export file.
+    def path_to_letters(self, cells: list[Coord]) -> str:
+        """ Converts path cells into direction letters """
+        return "".join(
+            DIRECTION_LETTERS[(x2 - x1, y2 - y1)]
+            for (x1, y1), (x2, y2) in zip(cells, cells[1:])
+        )
 
-        while queue:
-            x, y = queue.popleft()
-            if (x, y) == self.exit:
-                break
-            for (dx, dy), letter in DIRECTION_LETTERS.items():
-                wall, _ = WALL_DIRECTIONS[(dx, dy)]
-                if self.grid[y, x] & wall:
-                    continue
-                nxt = (x + dx, y + dy)
-                if nxt not in prev:
-                    prev[nxt] = ((x, y), letter)
-                    queue.append(nxt)
-
-        if self.exit not in prev:
-            raise ValueError("Exit is not reachable from entry")
-
-        path: list[str] = []
-        cell = self.exit
-        while True:
-            link = prev[cell]
-            if link is None:
-                break
-            cell, letter = link
-            path.append(letter)
-        return "".join(reversed(path))
+    def solution_letters(self) -> str:
+        """ Shorter path entry to exit direction letters , (always BSF) """
+        cells = BfsSolver(self.grid, self.entry, self.exit).path()
+        return self._path_to_letters(cells)
 
     def export_to_file(self) -> str:
         """Serialize the maze and solution.
@@ -176,7 +170,8 @@ class MazeGenerator:
             "\n".join(rows) + "\n\n"
             + entry_str + "\n"
             + exit_str + "\n"
-            + self.solve() + "\n"
+            + self.solution_letters() + "\n"
+            # leters of solved
         )
         if self.output_file:
             with open(self.output_file, "w", encoding="utf-8") as f:
