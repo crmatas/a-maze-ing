@@ -5,7 +5,8 @@ import unittest
 import numpy as np
 
 # Import the maze generator and its wall bitmasks.
-from mazegen.maze_generator import MazeGenerator, NORTH, EAST, SOUTH, WEST
+from mazegen.maze_generator import MazeGenerator
+from mazegen.constants import NORTH, SOUTH, WEST, EAST
 
 
 class TestMazeGeneratorInitialization(unittest.TestCase):
