@@ -161,7 +161,8 @@ class MlxRender():
         pixel_y_init = y * self._tile_size
         for px_y in range(pixel_y_init, pixel_y_init + self._tile_size):
             for px_x in range(pixel_x_init, pixel_x_init + self._tile_size):
-                self._frame_buffer.fill_px(color, px_x, px_y)
+                # self._frame_buffer.fill_px(color, px_x, px_y)
+                pass
 
     def cell_in_range(self, x: int = 0, y: int = 0) -> bool:
         if (0 <= x < self._width and 0 <= y < self._height):
