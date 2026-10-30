@@ -89,7 +89,7 @@ def test_config_invalid_algorithm():
                    output_file="maze.txt")
 
 
-def test_config_file():
+def test_config_file() -> None:
     config = Config(_env_file="config.txt")
     assert config.width == 20
     assert config.height == 15
