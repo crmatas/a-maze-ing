@@ -9,8 +9,7 @@ from mazegen.constants import (
     Coord,
     Step,
     WALL_DIRECTIONS,
-    PATTERN_HEIGHT,
-    PATTERN_WIDTH,
+    PATTERN_HEIGHT, PATTERN_WIDTH,
     PATTERN_42,
     DIRECTION_LETTERS,
 )
@@ -23,7 +22,7 @@ class MazeGenerator:
         self,
         exit: Coord,
         output_file: str | None = None,
-        perfect: bool = True,
+        perfect: bool = False,
         width: int | None = None,
         height: int | None = None,
         entry: Coord = (0, 0),
@@ -87,7 +86,7 @@ class MazeGenerator:
             for x, y in PATTERN_42
         }
         if self.entry in blocked or self.exit in blocked:
-            raise ValueError("Entry or Exit colides with '42' pattern")
+            raise ValueError
         return frozenset(blocked)
 
     def _get_unvisited_neighbors(
@@ -124,7 +123,7 @@ class MazeGenerator:
         start_x, start_y = self.entry
         yield ("start", start_x, start_y, start_x, start_y)
         for bx, by in self.blocked:
-            yield ("Blocked", bx, by, bx, by)
+            yield ("blocked", bx, by, bx, by)
         while stack:
             current_x, current_y = stack[-1]
             neighbors = self._get_unvisited_neighbors(
@@ -139,6 +138,8 @@ class MazeGenerator:
             else:
                 dead_x, dead_y = stack.pop()
                 yield ("backtrack", dead_x, dead_y, dead_x, dead_y)
+        if not self.perfect:
+            yield from self._braid()
 
     def generate(self) -> None:
         """Generate the complete maze by consuming all generation events."""
