@@ -15,46 +15,71 @@ from mazegen.constants import (
     DIRECTION_LETTERS,
 )
 
+from typing import Optional, Tuple
+from pydantic import field_validator, PrivateAttr, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict, NoDecode
+from typing import Annotated
 
-class MazeGenerator:
+
+class MazeGenerator(BaseSettings):
     """Validate, generate, and store the maze matrix."""
+    width: int
+    height: int
+    entry: Annotated[Tuple[int, int], NoDecode]
+    exit: Annotated[Tuple[int, int], NoDecode]
+    output_file: Annotated[str, NoDecode]
+    perfect: bool = True
+    seed: Optional[int] = None
+    algorithm: Optional[str] = None
 
-    def __init__(
-        self,
-        exit: Coord,
-        output_file: str | None = None,
-        perfect: bool = True,
-        width: int | None = None,
-        height: int | None = None,
-        entry: Coord = (0, 0),
-        seed: int | None = None,
-        algorithm: str | None = None,
-    ) -> None:
+    # Configuration that indicates which file read.
+    model_config = SettingsConfigDict(
+        env_file_encoding="utf-8",
+        extra="ignore",  # Ignores extra keys that are not on class.
+    )
+
+    rng: random.Random = PrivateAttr()
+    grid: np.ndarray = PrivateAttr()
+    blocked: frozenset[Coord] = PrivateAttr()
+
+    def model_post_init(self, context) -> None:
+        self.rng = random.Random(self.seed)
+        self.grid = np.ndarray(np.full(
+            (self.height, self.width), 15, dtype=np.uint8
+        ))
+        self.blocked: frozenset[Coord] = self._get_blocked_42()
+
+    @field_validator("entry", "exit", mode="before")
+    @classmethod
+    def parse_coords(cls, value):
+        if isinstance(value, str):
+            return tuple(map(int, value.split(",")))
+        return value
+
+    @field_validator("algorithm", mode="after")
+    @classmethod
+    def parse_algorithm(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value or value == "":
+            return None
+        value = " ".join(value.split())
+        return value
+
+    @model_validator(model="after")
+    def maze_validation(self) -> None:
         """Validate the maze settings and initialize a fully walled grid."""
 
-        if width is None or height is None or width < 2 or height < 2:
+        if self.width < 2 or self.height < 2:
             raise ValueError("Dimensions must be at least 2x2")
-        if not (0 <= entry[0] < width and 0 <= entry[1] < height):
+        if not (0 <= self.entry[0] < self.width and
+                0 <= self.entry[1] < self.height):
             raise ValueError("Entry is out of bounds")
-        if not (0 <= exit[0] < width and 0 <= exit[1] < height):
+        if not (0 <= self.exit[0] < self.width and 0 <= exit[1] < self.height):
             raise ValueError("Exit is out of bounds")
-        if entry == exit:
+        if self.entry == self.exit:
             raise ValueError("Entry and exit cannot be the same")
-
-        self.exit = exit
-        self.output_file = output_file
-        self.perfect = perfect
-        self.width = width
-        self.height = height
-        self.entry = entry
-        self.seed = seed
-        self.algorithm = algorithm
-        # Keep random choices local to this maze instance.
-        self.rng = random.Random(seed)
-        self.grid: np.ndarray = np.full(
-            (self.height, self.width), 15, dtype=np.uint8
-        )
-        self.blocked: frozenset[Coord] = self._get_blocked_42()
 
     def init_generation_structures(self) -> tuple[
         np.ndarray, list[Coord]
@@ -146,7 +171,7 @@ class MazeGenerator:
             pass
 
     #  Two method that use solver to export file.
-    def path_to_letters(self, cells: list[Coord]) -> str:
+    def _path_to_letters(self, cells: list[Coord]) -> str:
         """ Converts path cells into direction letters """
         return "".join(
             DIRECTION_LETTERS[(x2 - x1, y2 - y1)]
@@ -171,7 +196,6 @@ class MazeGenerator:
             + entry_str + "\n"
             + exit_str + "\n"
             + self.solution_letters() + "\n"
-            # leters of solved
         )
         if self.output_file:
             with open(self.output_file, "w", encoding="utf-8") as f:
