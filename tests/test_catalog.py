@@ -17,9 +17,11 @@ def test_get_nonexistent_theme():
 
 def test_next_theme_name():
     names = theme_names()
+    n = len(names)
     for name in names:
-        assert next_theme_name(name, 1) == names[(names.index(name) + 1) %
-                                                 len(names)]
+        i = names.index(name)
+        assert next_theme_name(name, 1) == names[(i + 1) % n]
+        assert next_theme_name(name, -1) == names[(i - 1) % n]
 
 
 def test_get_default_theme():
