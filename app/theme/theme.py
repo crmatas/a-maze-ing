@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from app.render.render_contract import Color
 
 
@@ -46,28 +46,32 @@ def contrast_ratio(fg: Color, bg: Color) -> float:
             return (((channel + 0.055) / 1.055) ** 2.4)
 
     # Normalize to 0-1
-    normalie_fg: dict[str, float] = {k: _normalize_channel(v)
-                                     for k, v in fg.__dict__.items()
-                                     if k != 'a'}
+    normalize_fg: dict[str, float] = {
+        field.name: _normalize_channel(getattr(fg, field.name))
+        for field in fields(fg)
+        if field.name != 'a'
+    }
 
-    normalie_bg: dict[str, float] = {k: _normalize_channel(v)
-                                     for k, v in bg.__dict__.items()
-                                     if k != 'a'}
+    normalize_bg: dict[str, float] = {
+        field.name: _normalize_channel(getattr(bg, field.name))
+        for field in fields(bg)
+        if field.name != 'a'
+    }
 
     # Linearized Gamma
-    linearized_foreground: dict[str, float] = {k: _linear_gamma(v)
-                                               for k, v in normalie_fg.items()}
-    linearized_background: dict[str, float] = {k: _linear_gamma(v)
-                                               for k, v in normalie_bg.items()}
+    linearized_fg: dict[str, float] = {k: _linear_gamma(v)
+                                       for k, v in normalize_fg.items()}
+    linearized_bg: dict[str, float] = {k: _linear_gamma(v)
+                                       for k, v in normalize_bg.items()}
 
     # Relative Luminance
-    lf = (0.2126 * linearized_foreground["r"] +
-          0.7152 * linearized_foreground["g"] +
-          0.0722 * linearized_foreground["b"])
+    lf = (0.2126 * linearized_fg["r"] +
+          0.7152 * linearized_fg["g"] +
+          0.0722 * linearized_fg["b"])
 
-    lb = (0.2126 * linearized_background["r"] +
-          0.7152 * linearized_background["g"] +
-          0.0722 * linearized_background["b"])
+    lb = (0.2126 * linearized_bg["r"] +
+          0.7152 * linearized_bg["g"] +
+          0.0722 * linearized_bg["b"])
 
     if lf > lb:
         return (lf + 0.05) / (lb + 0.05)
