@@ -110,7 +110,7 @@ _THEMES: dict[str, Theme] = _build_catalog()
 def get_theme(name: str) -> Theme:
     """Return a theme by name, or raise KeyError."""
     if name not in _THEMES:
-        raise KeyError(f"Unknown theme: {name!r}")
+        raise ValueError(f"Unknown theme: {name!r}")
     return _THEMES[name]
 
 
@@ -131,6 +131,6 @@ def next_theme_name(current: str, delta: int) -> str:
     try:
         index = names.index(current)
     except ValueError:
-        index = 0
+        return names[0]
     # Cycle through the theme names, wrapping around to the start if necessary.
     return names[(index + delta) % len(names)]
