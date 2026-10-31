@@ -108,7 +108,7 @@ _THEMES: dict[str, Theme] = _build_catalog()
 
 
 def get_theme(name: str) -> Theme:
-    """Return a theme by name, or raise KeyError."""
+    """Return a theme by name, or raise ValueError."""
     if name not in _THEMES:
         raise ValueError(f"Unknown theme: {name!r}")
     return _THEMES[name]
