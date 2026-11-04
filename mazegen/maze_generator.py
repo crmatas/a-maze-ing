@@ -9,8 +9,7 @@ from mazegen.constants import (
     Coord,
     Step,
     WALL_DIRECTIONS,
-    PATTERN_HEIGHT,
-    PATTERN_WIDTH,
+    PATTERN_HEIGHT, PATTERN_WIDTH,
     PATTERN_42,
     DIRECTION_LETTERS,
     EAST, SOUTH,
@@ -241,6 +240,8 @@ class MazeGenerator(BaseSettings):
             else:
                 dead_x, dead_y = stack.pop()
                 yield ("backtrack", dead_x, dead_y, dead_x, dead_y)
+        if not self.perfect:
+            yield from self._braid()
         if not self.perfect:
             yield from self._braid()
 

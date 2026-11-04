@@ -24,10 +24,8 @@ class Solve(ABC):
     @abstractmethod
     def steps(self) -> Iterator[SolveSteps]:
         pass
-    #  devolver el resultado de bfssolver que suele ser el mas corto.
-    #  el subject no dice de tener que devolver el mas corto de cada algorihm
 
-    def open_neighbor(self, x: int, y: int) -> Iterator:
+    def open_neighbor(self, x: int, y: int) -> Iterator[Coord]:
         for (dx, dy), (wall, _) in WALL_DIRECTIONS.items():
             if not (int(self.grid[y, x]) & wall):
                 yield (x + dx, y + dy)
