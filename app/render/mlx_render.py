@@ -1,8 +1,10 @@
 """MiniLibX window owner: pixels in, logical keys out, actions forwarded."""
 
-# from mlx import Mlx
+from time import perf_counter
+from mlx import Mlx
 from app.render.framebuffer import Framebuffer
-from app.render.render_contract import Color, Draw, Key, Scene
+from app.render.render_contract import (Color, Draw, Idle, FillRect,
+                                        Text, Key, Scene)
 from app.runtime_settings import (
     FALLBACK_MAX_HEIGHT,
     FALLBACK_MAX_WIDTH,
@@ -11,12 +13,20 @@ from app.runtime_settings import (
 
 # Fill with X11 keysyms -> Key (never scatter magic numbers in hooks).
 # Hint: arrows are often 65361..65364; Esc 65307 / 27; Return 65293.
-_X11_KEYMAP: dict[int, Key] = {}
+_X11_KEYMAP: dict[int, Key] = {
+    65362: Key.UP,
+    65364: Key.DOWN,
+    65361: Key.LEFT,
+    65363: Key.RIGHT,
+    65293: Key.ENTER,
+    65307: Key.ESC,
+    27: Key.ESC,
+}
 
 
 def color_to_mlx_int(color: Color) -> int:
     """Pack a Color into the uint expected by mlx_string_put (0x00RRGGBB)."""
-    raise NotImplementedError
+    return (color.r << 16) | (color.g << 8) | color.b
 
 
 class MlxRender:
@@ -46,7 +56,7 @@ class MlxRender:
         self._on_action = on_action
         self._min_frame_interval = 1.0 / max_fps if max_fps > 0 else 0.0
 
-        self._mlx: object | None = None
+        self._mlx: Mlx | None = None
         self._mlx_ptr: object | None = None
         self._win_ptr: object | None = None
         self._frame_buffer: Framebuffer | None = None
@@ -77,44 +87,143 @@ class MlxRender:
         return self._screen_height
 
     def initialize(self) -> None:
-        """Create MLX connection, one window, framebuffer; install hooks.
+        """Create MLX connection, one window, framebuffer; install hooks."""
 
-        Call mlx_get_screen_size after mlx_init. Propagate errors; do not
-        swallow exceptions and continue with null pointers.
-        """
-        raise NotImplementedError
+        if self._initialized:
+            return
+        try:
+            self._mlx = Mlx()
+            self._mlx_ptr = self._mlx.mlx_init()
+            if not self._mlx_ptr:
+                raise RuntimeError("Error, failed to initialize MiniLibX")
+
+            self._frame_buffer = Framebuffer(self._width, self._height)
+            self._frame_buffer.initialize(self._mlx, self._mlx_ptr)
+            (ret, self._screen_width, self._screen_height) = \
+                self._mlx.mlx_get_screen_size(self._mlx_ptr)
+            if ret != 0:
+                self._screen_width = FALLBACK_MAX_WIDTH
+                self._screen_height = FALLBACK_MAX_HEIGHT
+            self._win_ptr = self._mlx.mlx_new_window(self._mlx_ptr,
+                                                     self._width,
+                                                     self._height,
+                                                     self._window_title)
+            if not self._win_ptr:
+                raise RuntimeError("Error, failed to create the MLX window")
+
+            self._mlx.mlx_clear_window(self._mlx_ptr, self._win_ptr)
+            self._mlx.mlx_key_hook(self._win_ptr, self._key_hook, None)
+            self._mlx.mlx_hook(self._win_ptr, 33, 0, self._close_hook, None)
+            self._initialized = True
+        except Exception as e:
+            self._initialized = False
+            self.close()
+            raise RuntimeError("Error, failed to initialize Mlx") from e
 
     def set_scene(self, scene: Scene) -> None:
         """Activate a scene: clear window text + FB, then paint on_enter."""
-        raise NotImplementedError
+        self._scene = scene
+        self._mlx.mlx_clear_window(self._mlx_ptr, self._win_ptr)
+        draw = scene.on_enter(self._width, self._height)
+        self._paint(draw=draw, force_clear_window=True)
+        self._last_tick = perf_counter()
 
     def run(self) -> None:
         """Install loop_hook, enter blocking mlx_loop, close() in finally."""
-        raise NotImplementedError
+        if not self._initialized:
+            self.initialize()
+        self._mlx.mlx_loop_hook(self._mlx_ptr, self._on_loop, None)
+        try:
+            self._mlx.mlx_loop(self._mlx_ptr)
+        finally:
+            self.close()
 
     def request_quit(self) -> None:
         """Ask MiniLibX to leave its event loop (mlx_loop_exit)."""
-        raise NotImplementedError
+        if self._mlx_ptr is not None:
+            self._mlx.mlx_loop_exit(self._mlx_ptr)
 
     def close(self) -> None:
         """Release framebuffer, then window, then MLX connection."""
-        raise NotImplementedError
+        try:
+            if self._frame_buffer is not None:
+                self._frame_buffer.release(self._mlx, self._mlx_ptr)
+                self._frame_buffer = None
+        except Exception as e:
+            print(e)
+            raise RuntimeError("Error, failed to realease the frame buffer")
+
+        try:
+            if self._mlx_ptr is not None and self._win_ptr is not None:
+                self._mlx.mlx_destroy_window(self._mlx_ptr, self._win_ptr)
+                self._win_ptr = None
+        except Exception as e:
+            print(e)
+            raise RuntimeError("Error, failed to destroy the window")
+
+        try:
+            if self._mlx_ptr is not None:
+                self._mlx.mlx_release(self._mlx_ptr)
+                self._mlx_ptr = None
+        except Exception as e:
+            raise RuntimeError("Error, failed to release the mlx instance") \
+                from e
+
+        self._initialized = False
 
     def _close_hook(self, _dummy: object) -> None:
         """Window-close callback: request_quit."""
-        raise NotImplementedError
+        self.request_quit()
 
     def _key_hook(self, keynum: int, _param: object) -> None:
         """Map raw key via _X11_KEYMAP; call scene.on_key; forward Action."""
-        raise NotImplementedError
+        key = _X11_KEYMAP.get(keynum)
+        if key is None or self._scene is None:
+            return
+        action = self._scene.on_key(key)
+        if action is None or self._on_action is None:
+            return
+        self._on_action(action)
 
     def _on_loop(self, _param: object) -> None:
         """Compute elapsed, call scene.on_tick; skip paint on Idle/fps cap."""
-        raise NotImplementedError
+        now = perf_counter()
+        if now - self._last_paint < self._min_frame_interval:
+            return
+        elapsed = now - self._last_tick
+        self._last_tick = now
+        if self._scene is None:
+            return
+        result = self._scene.on_tick(elapsed)
+        if isinstance(result, Idle):
+            return
+        self._paint(result)
+        self._last_paint = now
 
     def _paint(self, draw: Draw, force_clear_window: bool = False) -> None:
         """Fixed order: clear?->FillRect to FB->put_image->Text on window."""
-        raise NotImplementedError
+        if draw is None:
+            return
+        if draw.clear is not None:
+            self._frame_buffer.clear(draw.clear)
+        elif force_clear_window:
+            self._mlx.mlx_clear_window(self._mlx_ptr, self._win_ptr)
+        rect_cmd = [cmd for cmd in draw.commands if isinstance(cmd, FillRect)]
+        txt_cmd = [cmd for cmd in draw.commands if isinstance(cmd, Text)]
+        for cmd in rect_cmd:
+            self._frame_buffer.fill_rect(x=cmd.x, y=cmd.y, width=cmd.width,
+                                         height=cmd.height, color=cmd.color)
+        self._mlx.mlx_put_image_to_window(self._mlx_ptr, self._win_ptr,
+                                          self._frame_buffer._image_ptr,
+                                          0, 0)
+
+        for cmd in txt_cmd:
+            color = color_to_mlx_int(cmd.color)
+            self._mlx.mlx_string_put(mlx_ptr=self._mlx_ptr,
+                                     win_ptr=self._win_ptr,
+                                     x=cmd.x, y=cmd.y,
+                                     color=color,
+                                     string=cmd.content)
 
 
 def compute_window_size(
