@@ -19,7 +19,7 @@ from app.runtime_settings import (
     MIN_STEP_INTERVAL,
     RuntimeSettings,
 )
-from app.scenes.menu_scene import MenuOption, MenuScene
+from app.scenes.menu_scene import MenuOption, MenuScene, _CHAR_W, _LINE_H
 from app.theme.catalog import default_theme, get_theme, next_theme_name
 
 
@@ -50,14 +50,17 @@ def test_on_enter_clears_with_theme_background() -> None:
     assert "Back to maze" in labels
 
 
-def test_on_enter_centers_block_on_larger_canvas() -> None:
+def test_on_enter_centers_content_on_larger_canvas() -> None:
     scene = MenuScene(RuntimeSettings(), default_theme())
     draw = scene.on_enter(640, 480)
     texts = _texts(draw)
     assert texts
-    # Block origin: ((640-320)//2 + pad, (480-240)//2 + pad) = (160+10, 120+10)
-    assert texts[0].x == (640 - MENU_MIN_WIDTH) // 2 + 10
-    assert texts[0].y == (480 - MENU_MIN_HEIGHT) // 2 + 10
+    content_width = max(len(t.content) * _CHAR_W for t in texts)
+    content_height = len(MenuOption) * _LINE_H
+    assert texts[0].x == (640 - content_width) // 2
+    assert texts[0].y == (480 - content_height) // 2
+    assert texts[1].y == texts[0].y + _LINE_H
+    assert all(t.x == texts[0].x for t in texts)
 
 
 def test_down_twice_enter_goes_to_maze() -> None:

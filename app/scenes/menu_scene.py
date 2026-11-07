@@ -28,7 +28,8 @@ from app.runtime_settings import (
 from app.theme.catalog import next_theme_name
 from app.theme.theme import Theme
 
-# Vertical gap between option rows (approximate MLX line height).
+# Approximate default MLX font metrics.
+_CHAR_W = 10
 _LINE_H = 20
 
 
@@ -43,8 +44,9 @@ class MenuOption(Enum):
 class MenuScene:
     """Main-menu scene: theme, step interval, and return to the maze.
 
-    Layout is a MENU_MIN_* block centered in the canvas; labels are
-    left-aligned inside that block. The selected row uses text_highlight.
+    Option rows share one left edge; that column is centered on the canvas
+    using an estimated text width (_CHAR_W). The stack is also centered
+    vertically. The selected row uses text_highlight.
 
     Painting is pull-based: on_key / update_settings only mark
     _scene_change; on_tick (or on_enter) returns the actual Draw.
@@ -70,29 +72,30 @@ class MenuScene:
             ),
         )
 
+    def _label_for(self, option: MenuOption) -> str:
+        match option:
+            case MenuOption.THEME:
+                return f"Theme: {self._settings.theme_name}"
+            case MenuOption.SPEED:
+                return f"Speed: {self._settings.step_interval:.2f}"
+            case MenuOption.BACK:
+                return "Back to maze"
+
     def _composer(self) -> Draw:
-        """Build one full frame: clear with theme.background + option texts"""
-        padding = 10
-        # Top-left of the fixed menu block when the window is larger.
-        menu_x = (self._canvas_w - MENU_MIN_WIDTH) // 2
-        menu_y = (self._canvas_h - MENU_MIN_HEIGHT) // 2
-        text_x = menu_x + padding
-        text_y = menu_y + padding
+        """Build one full frame: clear with theme.background + option texts."""
+        labels = [self._label_for(option) for option in MenuOption]
+        content_height = len(labels) * _LINE_H
+        content_width = max(len(label) * _CHAR_W for label in labels)
+        # Left-aligned column, optically centered on the canvas.
+        text_x = max(0, (self._canvas_w - content_width) // 2)
+        text_y = max(0, (self._canvas_h - content_height) // 2)
         text_options: list[FillRect | Text] = []
-        for option in MenuOption:
+        for option, content in zip(MenuOption, labels):
             color = (
                 self._theme.text_highlight
                 if option.value == self._selected
                 else self._theme.text
             )
-            match option:
-                case MenuOption.THEME:
-                    content = f"Theme: {self._settings.theme_name}"
-                case MenuOption.SPEED:
-                    content = f"Speed: {self._settings.step_interval}"
-                case MenuOption.BACK:
-                    content = "Back to maze"
-
             text_options.append(
                 Text(x=text_x, y=text_y, content=content, color=color)
             )

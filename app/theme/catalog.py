@@ -99,8 +99,13 @@ def _build_catalog() -> dict[str, Theme]:
     catalog: dict[str, Theme] = {}
     for factory in (_classic, _retro, _high_contrast, _halloween, _neon):
         theme = factory()
-        theme.validate()
+        if not theme.validate():
+            continue
         catalog[theme.name] = theme
+    if DEFAULT_THEME_NAME not in catalog:
+        raise RuntimeError(
+            f"Default theme {DEFAULT_THEME_NAME!r} failed contrast validation"
+        )
     return catalog
 
 
