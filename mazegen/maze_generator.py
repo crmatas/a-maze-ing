@@ -9,19 +9,19 @@ from mazegen.constants import (
     Coord,
     Step,
     WALL_DIRECTIONS,
-    PATTERN_HEIGHT, PATTERN_WIDTH,
+    PATTERN_HEIGHT, PATTERN_WIDTH, PATTERN_CENTERED_COL,
     PATTERN_42,
     DIRECTION_LETTERS,
     EAST, SOUTH,
 )
 
 from typing import Optional, Tuple, Any
-from pydantic import field_validator, PrivateAttr, model_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict, NoDecode
+from pydantic import field_validator, PrivateAttr, model_validator, BaseModel
+from pydantic_settings import NoDecode
 from typing import Annotated
 
 
-class MazeGenerator(BaseSettings):
+class MazeGenerator(BaseModel):
     """Validate, generate, and store the maze matrix."""
     width: int
     height: int
@@ -31,12 +31,6 @@ class MazeGenerator(BaseSettings):
     perfect: bool = False
     seed: Optional[int] = None
     algorithm: Optional[str] = None
-
-    # Configuration that indicates which file read.
-    model_config = SettingsConfigDict(
-        env_file_encoding="utf-8",
-        extra="ignore",  # Ignores extra keys that are not on class.
-    )
 
     # intern atributes, grid and blocked with property to be used out.
     _rng: random.Random = PrivateAttr()
@@ -113,7 +107,7 @@ class MazeGenerator(BaseSettings):
         if self.width < PATTERN_WIDTH + 2 or self.height < PATTERN_HEIGHT + 2:
             return frozenset()
         #  Calculate the offset to center the pattern.
-        offset_x = (self.width - PATTERN_WIDTH) // 2
+        offset_x = self.width // 2 - PATTERN_CENTERED_COL
         offset_y = (self.height - PATTERN_HEIGHT) // 2
         #  Create absolute coords: relative plus offset.abs
         blocked = {

@@ -1,6 +1,6 @@
 [project]
 name = "mazegen"
-version = "0.1.0"
+version = "1.0.0"
 description = "Maze generator package"
 authors = [
     {name = "crmatas-", email = "crmatas-@student.42malaga.com"}, {name = "lupin", email = "lupin@student.42malaga.com"}
