@@ -19,17 +19,15 @@ class Theme:
     solution: Color
     pattern: Color
 
-    def validate(self, min_contrast: float = 4.5) -> None:
-        """Raise ValueError if text / background contrast is too low."""
+    def validate(self, min_contrast: float = 4.5) -> bool:
+        """Return True if text / highlight contrast vs background meets AA."""
         text_contrast = contrast_ratio(self.text, self.background)
         text_highlight_contrast = contrast_ratio(self.text_highlight,
                                                  self.background)
-        if text_contrast < min_contrast:
-            raise ValueError("Text contrast ratio is too low: "
-                             f"{text_contrast}")
-        if text_highlight_contrast < min_contrast:
-            raise ValueError("Text highlight contrast ratio is too low: "
-                             f"{text_highlight_contrast}")
+        if (text_contrast < min_contrast
+                or text_highlight_contrast < min_contrast):
+            return False
+        return True
 
 
 def contrast_ratio(fg: Color, bg: Color) -> float:
