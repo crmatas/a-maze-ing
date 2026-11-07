@@ -1,5 +1,6 @@
 """MiniLibX window owner: pixels in, logical keys out, actions forwarded."""
 
+from collections.abc import Callable
 from time import perf_counter
 from mlx import Mlx
 from app.render.framebuffer import Framebuffer
@@ -41,7 +42,7 @@ class MlxRender:
         width: int,
         height: int,
         window_title: str = "A-Maze-Ing",
-        on_action: object | None = None,
+        on_action: Callable[..., None] | None = None,
         max_fps: float = TARGET_MAX_FPS,
     ) -> None:
         """Store size, title, action callback, and fps cap; init attributes.
@@ -123,6 +124,8 @@ class MlxRender:
     def set_scene(self, scene: Scene) -> None:
         """Activate a scene: clear window text + FB, then paint on_enter."""
         self._scene = scene
+        if self._mlx is None:
+            return
         self._mlx.mlx_clear_window(self._mlx_ptr, self._win_ptr)
         draw = scene.on_enter(self._width, self._height)
         self._paint(draw=draw, force_clear_window=True)
@@ -132,6 +135,8 @@ class MlxRender:
         """Install loop_hook, enter blocking mlx_loop, close() in finally."""
         if not self._initialized:
             self.initialize()
+        if self._mlx is None:
+            return
         self._mlx.mlx_loop_hook(self._mlx_ptr, self._on_loop, None)
         try:
             self._mlx.mlx_loop(self._mlx_ptr)
@@ -140,6 +145,8 @@ class MlxRender:
 
     def request_quit(self) -> None:
         """Ask MiniLibX to leave its event loop (mlx_loop_exit)."""
+        if self._mlx is None:
+            return
         if self._mlx_ptr is not None:
             self._mlx.mlx_loop_exit(self._mlx_ptr)
 
@@ -154,7 +161,11 @@ class MlxRender:
             raise RuntimeError("Error, failed to realease the frame buffer")
 
         try:
-            if self._mlx_ptr is not None and self._win_ptr is not None:
+            if (
+                self._mlx is not None
+                and self._mlx_ptr is not None
+                and self._win_ptr is not None
+            ):
                 self._mlx.mlx_destroy_window(self._mlx_ptr, self._win_ptr)
                 self._win_ptr = None
         except Exception as e:
@@ -162,7 +173,7 @@ class MlxRender:
             raise RuntimeError("Error, failed to destroy the window")
 
         try:
-            if self._mlx_ptr is not None:
+            if self._mlx is not None and self._mlx_ptr is not None:
                 self._mlx.mlx_release(self._mlx_ptr)
                 self._mlx_ptr = None
         except Exception as e:
@@ -202,28 +213,31 @@ class MlxRender:
 
     def _paint(self, draw: Draw, force_clear_window: bool = False) -> None:
         """Fixed order: clear?->FillRect to FB->put_image->Text on window."""
-        if draw is None:
+        if self._mlx is None or draw is None or self._frame_buffer is None:
             return
         if draw.clear is not None:
             self._frame_buffer.clear(draw.clear)
         elif force_clear_window:
             self._mlx.mlx_clear_window(self._mlx_ptr, self._win_ptr)
-        rect_cmd = [cmd for cmd in draw.commands if isinstance(cmd, FillRect)]
-        txt_cmd = [cmd for cmd in draw.commands if isinstance(cmd, Text)]
-        for cmd in rect_cmd:
-            self._frame_buffer.fill_rect(x=cmd.x, y=cmd.y, width=cmd.width,
-                                         height=cmd.height, color=cmd.color)
+        rect_cmd: list[FillRect] = [cmd for cmd in draw.commands
+                                    if isinstance(cmd, FillRect)]
+
+        txt_cmd: list[Text] = [cmd for cmd in draw.commands
+                               if isinstance(cmd, Text)]
+        for rect in rect_cmd:
+            self._frame_buffer.fill_rect(x=rect.x, y=rect.y, width=rect.width,
+                                         height=rect.height, color=rect.color)
         self._mlx.mlx_put_image_to_window(self._mlx_ptr, self._win_ptr,
                                           self._frame_buffer._image_ptr,
                                           0, 0)
 
-        for cmd in txt_cmd:
-            color = color_to_mlx_int(cmd.color)
+        for text in txt_cmd:
+            color = color_to_mlx_int(text.color)
             self._mlx.mlx_string_put(mlx_ptr=self._mlx_ptr,
                                      win_ptr=self._win_ptr,
-                                     x=cmd.x, y=cmd.y,
+                                     x=text.x, y=text.y,
                                      color=color,
-                                     string=cmd.content)
+                                     string=text.content)
 
 
 def compute_window_size(
