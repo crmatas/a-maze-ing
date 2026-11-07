@@ -9,52 +9,82 @@ from mazegen.constants import (
     Coord,
     Step,
     WALL_DIRECTIONS,
-    PATTERN_HEIGHT,
-    PATTERN_WIDTH,
+    PATTERN_HEIGHT, PATTERN_WIDTH, PATTERN_CENTERED_COL,
     PATTERN_42,
     DIRECTION_LETTERS,
+    EAST, SOUTH,
 )
 
+from typing import Optional, Tuple, Any
+from pydantic import field_validator, PrivateAttr, model_validator, BaseModel
+from pydantic_settings import NoDecode
+from typing import Annotated
 
-class MazeGenerator:
+
+class MazeGenerator(BaseModel):
     """Validate, generate, and store the maze matrix."""
+    width: int
+    height: int
+    entry: Annotated[Tuple[int, int], NoDecode]
+    exit: Annotated[Tuple[int, int], NoDecode]
+    output_file: str
+    perfect: bool = False
+    seed: Optional[int] = None
+    algorithm: Optional[str] = None
 
-    def __init__(
-        self,
-        exit: Coord,
-        output_file: str | None = None,
-        perfect: bool = True,
-        width: int | None = None,
-        height: int | None = None,
-        entry: Coord = (0, 0),
-        seed: int | None = None,
-        algorithm: str | None = None,
-    ) -> None:
-        """Validate the maze settings and initialize a fully walled grid."""
+    # intern atributes, grid and blocked with property to be used out.
+    _rng: random.Random = PrivateAttr()
+    _grid: np.ndarray = PrivateAttr()
+    _blocked: frozenset[Coord] = PrivateAttr()
 
-        if width is None or height is None or width < 2 or height < 2:
-            raise ValueError("Dimensions must be at least 2x2")
-        if not (0 <= entry[0] < width and 0 <= entry[1] < height):
-            raise ValueError("Entry is out of bounds")
-        if not (0 <= exit[0] < width and 0 <= exit[1] < height):
-            raise ValueError("Exit is out of bounds")
-        if entry == exit:
-            raise ValueError("Entry and exit cannot be the same")
-
-        self.exit = exit
-        self.output_file = output_file
-        self.perfect = perfect
-        self.width = width
-        self.height = height
-        self.entry = entry
-        self.seed = seed
-        self.algorithm = algorithm
-        # Keep random choices local to this maze instance.
-        self.rng = random.Random(seed)
-        self.grid: np.ndarray = np.full(
+    def model_post_init(self, context: Any) -> None:
+        self._rng = random.Random(self.seed)
+        self._grid = np.full(
             (self.height, self.width), 15, dtype=np.uint8
         )
-        self.blocked: frozenset[Coord] = self._get_blocked_42()
+        self._blocked = self._get_blocked_42()
+
+    @property
+    def grid(self) -> np.ndarray:
+        return self._grid
+
+    @property
+    def blocked(self) -> frozenset[Coord]:
+        return self._blocked
+
+    @field_validator("entry", "exit", mode="before")
+    @classmethod
+    def parse_coords(cls, value):
+        if isinstance(value, str):
+            return tuple(map(int, value.split(",")))
+        return value
+
+    @field_validator("algorithm", mode="after")
+    @classmethod
+    def parse_algorithm(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value or value == "":
+            return None
+        value = " ".join(value.split())
+        return value
+
+    @model_validator(mode="after")
+    def maze_validation(self) -> "MazeGenerator":
+        """Validate the maze settings and initialize a fully walled grid."""
+
+        if self.width < 2 or self.height < 2:
+            raise ValueError("Dimensions must be at least 2x2")
+        if not (0 <= self.entry[0] < self.width and
+                0 <= self.entry[1] < self.height):
+            raise ValueError("Entry is out of bounds")
+        if not (0 <= self.exit[0] < self.width and
+                0 <= self.exit[1] < self.height):
+            raise ValueError("Exit is out of bounds")
+        if self.entry == self.exit:
+            raise ValueError("Entry and exit cannot be the same")
+        return self
 
     def init_generation_structures(self) -> tuple[
         np.ndarray, list[Coord]
@@ -62,7 +92,7 @@ class MazeGenerator:
         """Create the visited-cell array and DFS stack for generation."""
         visited = np.zeros((self.height, self.width), dtype=bool)
         start_x, start_y = self.entry
-        for bx, by in self.blocked:
+        for bx, by in self._blocked:
             visited[by, bx] = True
         visited[start_y, start_x] = True
         stack: list[Coord] = [(start_x, start_y)]
@@ -71,15 +101,13 @@ class MazeGenerator:
 #  If it does not fit will raise a message controlled on main
     @property
     def has_42(self) -> bool:
-        return bool(self.blocked)
+        return bool(self._blocked)
 
     def _get_blocked_42(self) -> frozenset[Coord]:
         if self.width < PATTERN_WIDTH + 2 or self.height < PATTERN_HEIGHT + 2:
-            print("Warning Maze is too small for '42' pattern:"
-                  "Generating without it!")
             return frozenset()
         #  Calculate the offset to center the pattern.
-        offset_x = (self.width - PATTERN_WIDTH) // 2
+        offset_x = self.width // 2 - PATTERN_CENTERED_COL
         offset_y = (self.height - PATTERN_HEIGHT) // 2
         #  Create absolute coords: relative plus offset.abs
         blocked = {
@@ -87,7 +115,7 @@ class MazeGenerator:
             for x, y in PATTERN_42
         }
         if self.entry in blocked or self.exit in blocked:
-            raise ValueError("Entry or Exit colides with '42' pattern")
+            raise ValueError("Entry or Exit collides with '42' pattern")
         return frozenset(blocked)
 
     def _get_unvisited_neighbors(
@@ -112,8 +140,75 @@ class MazeGenerator:
         wall_current, wall_neighbor = WALL_DIRECTIONS[(dx, dy)]
 
         # NumPy indexes the grid as [row, column], or [y, x].
-        self.grid[y1, x1] &= (0xFF ^ wall_current)
-        self.grid[y2, x2] &= (0xFF ^ wall_neighbor)
+        self._grid[y1, x1] &= (0xFF ^ wall_current)
+        self._grid[y2, x2] &= (0xFF ^ wall_neighbor)
+
+    def _open_count(self, x: int, y: int) -> int:
+        """Number of open sides of a cell."""
+        return sum(
+            1 for wall, _ in WALL_DIRECTIONS.values()
+            if not int(self._grid[y, x]) & wall
+        )
+
+    def _dead_ends(self) -> list[Coord]:
+        """Free cells with exactly one open side."""
+        return [
+            (x, y)
+            for y in range(self.height)
+            for x in range(self.width)
+            if (x, y) not in self._blocked and self._open_count(x, y) == 1
+        ]
+
+    def _add_wall(self, x1: int, y1: int, x2: int, y2: int) -> None:
+        """Restore the shared wall between two neighboring cells."""
+        wall_current, wall_neighbor = WALL_DIRECTIONS[(x2 - x1, y2 - y1)]
+        self._grid[y1, x1] |= wall_current
+        self._grid[y2, x2] |= wall_neighbor
+
+    def _block_open(self, tx: int, ty: int) -> bool:
+        """True if the 3x3 block with top-left (tx, ty) is fully open."""
+        for j in range(3):
+            for i in range(3):
+                cell = int(self._grid[ty + j, tx + i])
+                if i < 2 and cell & EAST:
+                    return False
+                if j < 2 and cell & SOUTH:
+                    return False
+        return True
+
+    def _open_3x3_near(self, x: int, y: int) -> bool:
+        """True if any 3x3 block containing (x, y) is fully open."""
+        for ty in range(y - 2, y + 1):
+            for tx in range(x - 2, x + 1):
+                if (0 <= tx and tx + 2 < self.width
+                        and 0 <= ty and ty + 2 < self.height
+                        and self._block_open(tx, ty)):
+                    return True
+        return False
+
+    def _braid(self) -> Iterator[Step]:
+        """Remove walls at dead ends to create loops (non-perfect mode)."""
+        dead_ends = self._dead_ends()
+        self._rng.shuffle(dead_ends)
+        for x, y in dead_ends:
+            if self._open_count(x, y) != 1:
+                continue    # a previous removal already fixed it
+            options = [
+                (x + dx, y + dy)
+                for (dx, dy), (wall, _) in WALL_DIRECTIONS.items()
+                if int(self._grid[y, x]) & wall
+                and 0 <= x + dx < self.width
+                and 0 <= y + dy < self.height
+                and (x + dx, y + dy) not in self._blocked
+            ]
+            self._rng.shuffle(options)
+            for nx, ny in options:
+                self._remove_wall(x, y, nx, ny)
+                if self._open_3x3_near(x, y) or self._open_3x3_near(nx, ny):
+                    self._add_wall(x, y, nx, ny)    # undo
+                    continue
+                yield ("braid", x, y, nx, ny)
+                break
 
     def generate_steps(self) -> Iterator[Step]:
         """Yield start, carve, and backtrack events.
@@ -123,15 +218,15 @@ class MazeGenerator:
         visited, stack = self.init_generation_structures()
         start_x, start_y = self.entry
         yield ("start", start_x, start_y, start_x, start_y)
-        for bx, by in self.blocked:
-            yield ("Blocked", bx, by, bx, by)
+        for bx, by in self._blocked:
+            yield ("blocked", bx, by, bx, by)
         while stack:
             current_x, current_y = stack[-1]
             neighbors = self._get_unvisited_neighbors(
                 current_x, current_y, visited
             )
             if neighbors:
-                next_x, next_y = self.rng.choice(neighbors)
+                next_x, next_y = self._rng.choice(neighbors)
                 self._remove_wall(current_x, current_y, next_x, next_y)
                 visited[next_y, next_x] = True
                 stack.append((next_x, next_y))
@@ -139,6 +234,10 @@ class MazeGenerator:
             else:
                 dead_x, dead_y = stack.pop()
                 yield ("backtrack", dead_x, dead_y, dead_x, dead_y)
+        if not self.perfect:
+            yield from self._braid()
+        if not self.perfect:
+            yield from self._braid()
 
     def generate(self) -> None:
         """Generate the complete maze by consuming all generation events."""
@@ -155,7 +254,7 @@ class MazeGenerator:
 
     def solution_letters(self) -> str:
         """ Shorter path entry to exit direction letters , (always BSF) """
-        cells = BfsSolver(self.grid, self.entry, self.exit).path()
+        cells = BfsSolver(self._grid, self.entry, self.exit).path()
         return self._path_to_letters(cells)
 
     def export_to_file(self) -> str:
@@ -163,7 +262,7 @@ class MazeGenerator:
 
         Write the serialized maze to a file when an output path is set.
         """
-        rows = ["".join(f"{int(c):X}" for c in row) for row in self.grid]
+        rows = ["".join(f"{int(c):X}" for c in row) for row in self._grid]
         entry_str = "{},{}".format(*self.entry)
         exit_str = "{},{}".format(*self.exit)
         content = (
@@ -171,7 +270,6 @@ class MazeGenerator:
             + entry_str + "\n"
             + exit_str + "\n"
             + self.solution_letters() + "\n"
-            # leters of solved
         )
         if self.output_file:
             with open(self.output_file, "w", encoding="utf-8") as f:
