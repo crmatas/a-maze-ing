@@ -47,3 +47,4 @@ PATTERN_42: frozenset[Coord] = frozenset(
 
 PATTERN_HEIGHT: int = len(PATTERN_42_ASCII)
 PATTERN_WIDTH: int = max(len(row) for row in PATTERN_42_ASCII)
+PATTERN_CENTERED_COL: int = 3
