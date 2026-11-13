@@ -19,9 +19,12 @@ from app.render.render_contract import (
     GoToMenu,
     IntervalChanged,
     Quit,
+    Regenerate,
+    SeedChanged,
     ThemeChanged,
 )
 from app.runtime_settings import (
+    DEFAULT_SEED,
     FALLBACK_MAX_HEIGHT,
     FALLBACK_MAX_WIDTH,
     MENU_MIN_HEIGHT,
@@ -54,7 +57,8 @@ class App:
     """Own runtime settings, scene transitions, and ordered MLX teardown.
 
     ``handle_action`` is the only place that matches on action kinds.
-    Scenes stay alive across GoToMenu / GoToMaze so maze generation resumes.
+    Regenerating builds a new MazeGenerator with the menu seed (same seed
+    → same maze) and clears the window via set_scene / on_enter.
     """
 
     def __init__(
@@ -64,19 +68,9 @@ class App:
         screen_size: tuple[int, int] | None = None,
     ) -> None:
         self._config = config
-        self._settings = RuntimeSettings()
+        seed = config.seed if config.seed is not None else DEFAULT_SEED
+        self._settings = RuntimeSettings(seed=seed)
         self._theme: Theme = default_theme()
-
-        self._generator = MazeGenerator(
-            width=config.width,
-            height=config.height,
-            entry=config.entry,
-            exit=config.exit,
-            output_file=config.output_file,
-            perfect=config.perfect,
-            seed=config.seed,
-            algorithm=config.algorithm,
-        )
 
         if screen_size is None:
             screen_w, screen_h = probe_screen_size()
@@ -100,27 +94,53 @@ class App:
             on_action=self.handle_action,
         )
 
+        self._menu = MenuScene(self._settings, self._theme)
+        self._rebuild_maze()
+        self._active: MenuScene | MazeScene = self._maze
+
+    def _new_generator(self) -> MazeGenerator:
+        """Build a MazeGenerator from config + the current runtime seed."""
+        cfg = self._config
+        return MazeGenerator(
+            width=cfg.width,
+            height=cfg.height,
+            entry=cfg.entry,
+            exit=cfg.exit,
+            output_file=cfg.output_file,
+            perfect=cfg.perfect,
+            seed=self._settings.seed,
+            algorithm=cfg.algorithm,
+        )
+
+    def _rebuild_maze(self) -> None:
+        """New generator + interpreter+scene; next set_scene clears/redraws."""
+        self._generator = self._new_generator()
         self._interpreter = MazeInterpreter(
             self._generator.grid,
-            entry=config.entry,
-            exit=config.exit,
+            entry=self._config.entry,
+            exit=self._config.exit,
             canvas_width=self._window_width,
             canvas_height=self._window_height,
             desired_tile_size=self._settings.desired_tile_size,
         )
-
-        self._menu = MenuScene(self._settings, self._theme)
         self._maze = MazeScene(
             self._generator,
             self._interpreter,
             self._settings,
             self._theme,
         )
-        self._active: MenuScene | MazeScene = self._maze
 
     def handle_action(
         self,
-        action: ThemeChanged | IntervalChanged | GoToMaze | GoToMenu | Quit,
+        action: (
+            ThemeChanged
+            | IntervalChanged
+            | SeedChanged
+            | Regenerate
+            | GoToMaze
+            | GoToMenu
+            | Quit
+        ),
     ) -> None:
         """Apply scene actions; the only place that matches on action kinds."""
         if isinstance(action, ThemeChanged):
@@ -132,10 +152,20 @@ class App:
             self._settings = self._settings.with_interval(action.seconds)
             self._menu.update_settings(self._settings, self._theme)
             self._maze.update_settings(self._settings, self._theme)
+        elif isinstance(action, SeedChanged):
+            self._settings = self._settings.with_seed(action.seed)
+            self._menu.update_settings(self._settings, self._theme)
+            self._maze.update_settings(self._settings, self._theme)
+        elif isinstance(action, Regenerate):
+            self._rebuild_maze()
+            self._active = self._maze
+            self._renderer.set_scene(self._maze)
         elif isinstance(action, GoToMenu):
             self._active = self._menu
             self._renderer.set_scene(self._menu)
         elif isinstance(action, GoToMaze):
+            if self._generator.seed != self._settings.seed:
+                self._rebuild_maze()
             self._active = self._maze
             self._renderer.set_scene(self._maze)
         elif isinstance(action, Quit):
