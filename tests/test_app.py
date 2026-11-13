@@ -80,7 +80,7 @@ def test_app_wires_window_scenes_and_shared_grid(tmp_path: Path) -> None:
     assert isinstance(app._menu, MenuScene)
     assert isinstance(app._maze, MazeScene)
     assert app._interpreter._grid is app._generator.grid
-    assert app._active is app._maze
+    assert app._active is app._menu
 
 
 def test_handle_theme_and_interval_update_both_scenes(tmp_path: Path) -> None:

@@ -96,7 +96,7 @@ class App:
 
         self._menu = MenuScene(self._settings, self._theme)
         self._rebuild_maze()
-        self._active: MenuScene | MazeScene = self._maze
+        self._active: MenuScene | MazeScene = self._menu
 
     def _new_generator(self) -> MazeGenerator:
         """Build a MazeGenerator from config + the current runtime seed."""
@@ -172,10 +172,10 @@ class App:
             self._renderer.request_quit()
 
     def run(self) -> None:
-        """Initialize renderer, show the maze scene, enter the MLX loop."""
+        """Initialize renderer, show the menu, enter the MLX loop."""
         self._renderer.initialize()
-        self._active = self._maze
-        self._renderer.set_scene(self._maze)
+        self._active = self._menu
+        self._renderer.set_scene(self._menu)
         self._renderer.run()
 
 
