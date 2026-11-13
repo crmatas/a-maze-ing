@@ -19,6 +19,8 @@ DEFAULT_STEP_INTERVAL = 0.05
 MIN_STEP_INTERVAL = 0.01
 MAX_STEP_INTERVAL = 1.0
 INTERVAL_STEP = 0.01
+DEFAULT_SEED = 0
+SEED_STEP = 1
 
 TARGET_MAX_FPS = 30.0
 
@@ -29,6 +31,7 @@ class RuntimeSettings:
 
     theme_name: str = DEFAULT_THEME_NAME
     step_interval: float = DEFAULT_STEP_INTERVAL
+    seed: int = DEFAULT_SEED
     desired_tile_size: int = DESIRED_TILE_SIZE
     window_title: str = "A-Maze-Ing"
 
@@ -40,3 +43,7 @@ class RuntimeSettings:
         """Return a copy with step_interval clamped to MIN/MAX_STEP_INTERVAL"""
         interval = max(MIN_STEP_INTERVAL, min(seconds, MAX_STEP_INTERVAL))
         return replace(self, step_interval=interval)
+
+    def with_seed(self, seed: int) -> "RuntimeSettings":
+        """Return a copy with a non-negative seed."""
+        return replace(self, seed=max(0, seed))

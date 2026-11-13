@@ -33,6 +33,12 @@ def test_theme_change() -> None:
     assert rt.theme_name == DEFAULT_THEME_NAME
 
 
+def test_seed_change_clamps_to_non_negative() -> None:
+    rt = RuntimeSettings(seed=3)
+    assert rt.with_seed(7).seed == 7
+    assert rt.with_seed(-1).seed == 0
+
+
 def test_compute_window_size_uses_ideal_when_between_menu_and_screen() -> None:
     # 20*24=480, 15*24=360 → between menu min and a large screen
     width, height = compute_window_size(

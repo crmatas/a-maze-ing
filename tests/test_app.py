@@ -8,12 +8,16 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+import numpy as np
+
 from app.app import App, load_config, main
 from app.render.render_contract import (
     GoToMaze,
     GoToMenu,
     IntervalChanged,
     Quit,
+    Regenerate,
+    SeedChanged,
     ThemeChanged,
 )
 from app.runtime_settings import MENU_MIN_HEIGHT, MENU_MIN_WIDTH
@@ -111,6 +115,36 @@ def test_handle_go_to_menu_and_maze_switches_scene(tmp_path: Path) -> None:
     app.handle_action(GoToMaze())
     assert switched[-1] is app._maze
     assert app._active is app._maze
+
+
+def test_regenerate_same_seed_replays_maze(tmp_path: Path) -> None:
+    app = _app(tmp_path)
+    app._generator.generate()
+    first = app._generator.grid.copy()
+    app._renderer.set_scene = lambda _scene: None  # type: ignore[method-assign]
+    app.handle_action(Regenerate())
+    maze = app._maze
+    maze.on_enter(MENU_MIN_WIDTH, MENU_MIN_HEIGHT)
+    for _ in range(50_000):
+        maze.on_tick(0.01)
+        if maze._done:
+            break
+    else:
+        raise AssertionError("generation never finished")
+    assert np.array_equal(first, app._generator.grid)
+    assert app._generator.seed == app._settings.seed
+
+
+def test_seed_change_rebuilds_on_go_to_maze(tmp_path: Path) -> None:
+    app = _app(tmp_path)
+    old = app._generator
+    app.handle_action(SeedChanged(99))
+    assert app._settings.seed == 99
+    assert app._generator is old
+    app._renderer.set_scene = lambda _scene: None  # type: ignore[method-assign]
+    app.handle_action(GoToMaze())
+    assert app._generator is not old
+    assert app._generator.seed == 99
 
 
 def test_handle_quit_requests_renderer_exit(tmp_path: Path) -> None:

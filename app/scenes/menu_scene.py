@@ -1,7 +1,7 @@
 """Fixed-layout settings menu driven only by the keyboard.
 
 Does not talk to MiniLibX: returns Draw/Idle for the renderer and
-ThemeChanged / IntervalChanged / GoToMaze / Quit for the app to apply.
+ThemeChanged / IntervalChanged / SeedChanged / GoToMaze / Quit for the app.
 """
 
 from enum import Enum
@@ -14,6 +14,7 @@ from app.render.render_contract import (
     IntervalChanged,
     Key,
     Quit,
+    SeedChanged,
     Text,
     ThemeChanged,
 )
@@ -24,6 +25,7 @@ from app.runtime_settings import (
     MENU_MIN_WIDTH,
     MIN_STEP_INTERVAL,
     RuntimeSettings,
+    SEED_STEP,
 )
 from app.theme.catalog import next_theme_name
 from app.theme.theme import Theme
@@ -38,11 +40,12 @@ class MenuOption(Enum):
 
     THEME = 0
     SPEED = 1
-    BACK = 2
+    SEED = 2
+    BACK = 3
 
 
 class MenuScene:
-    """Main-menu scene: theme, step interval, and return to the maze.
+    """Main-menu scene: theme, speed, seed, and return to the maze.
 
     Option rows share one left edge; that column is centered on the canvas
     using an estimated text width (_CHAR_W). The stack is also centered
@@ -72,12 +75,18 @@ class MenuScene:
             ),
         )
 
+    def _edit_seed(self, delta: int) -> int:
+        """Return seed ± SEED_STEP, clamped to >= 0."""
+        return max(0, self._settings.seed + delta * SEED_STEP)
+
     def _label_for(self, option: MenuOption) -> str:
         match option:
             case MenuOption.THEME:
                 return f"Theme: {self._settings.theme_name}"
             case MenuOption.SPEED:
                 return f"Speed: {self._settings.step_interval:.2f}"
+            case MenuOption.SEED:
+                return f"Seed: {self._settings.seed}"
             case MenuOption.BACK:
                 return "Back to maze"
 
@@ -128,12 +137,12 @@ class MenuScene:
 
     def on_key(
         self, key: Key
-    ) -> ThemeChanged | IntervalChanged | GoToMaze | Quit | None:
+    ) -> ThemeChanged | IntervalChanged | SeedChanged | GoToMaze | Quit | None:
         """Handle navigation and edits; return an action for the app or None.
 
         Up/Down: move selection and mark dirty (repaint on next tick).
-        Left/Right: ThemeChanged / IntervalChanged (app applies, then
-        update_settings). Enter on Back: GoToMaze. Esc: Quit.
+        Left/Right: ThemeChanged / IntervalChanged / SeedChanged.
+        Enter on Back: GoToMaze. Esc: Quit.
         """
         match key:
             case Key.UP:
@@ -151,6 +160,8 @@ class MenuScene:
                     )
                 if self._selected == MenuOption.SPEED.value:
                     return IntervalChanged(self._edit_speed(1))
+                if self._selected == MenuOption.SEED.value:
+                    return SeedChanged(self._edit_seed(1))
                 return None
             case Key.LEFT:
                 if self._selected == MenuOption.THEME.value:
@@ -159,6 +170,8 @@ class MenuScene:
                     )
                 if self._selected == MenuOption.SPEED.value:
                     return IntervalChanged(self._edit_speed(-1))
+                if self._selected == MenuOption.SEED.value:
+                    return SeedChanged(self._edit_seed(-1))
                 return None
             case Key.ENTER:
                 if self._selected == MenuOption.BACK.value:

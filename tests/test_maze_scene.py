@@ -127,11 +127,12 @@ def test_on_tick_draws_one_event_after_interval() -> None:
 def test_on_tick_idle_when_finished() -> None:
     scene, _, _ = _scene(interval=0.01)
     scene.on_enter(MENU_MIN_WIDTH, MENU_MIN_HEIGHT)
-    # Drain the iterator.
+    # Drain the iterator; final StopIteration triggers a full clear-repaint.
     for _ in range(10_000):
         result = scene.on_tick(0.01)
         if scene._done:
-            assert isinstance(result, Idle)
+            assert isinstance(result, Draw)
+            assert result.clear is not None
             break
     else:
         raise AssertionError("generation never finished")

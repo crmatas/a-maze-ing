@@ -62,6 +62,10 @@ def test_apply_event_start_blocked_carve_backtrack() -> None:
     assert interp._head == (1, 0)
     assert (0, 0) in interp._trail
 
+    interp.apply_event(("braid", 2, 2, 3, 2))
+    assert interp._head == (1, 0)
+    assert (2, 2) not in interp._trail
+
     interp.apply_event(("backtrack", 1, 0, 1, 0))
     assert interp._head is None
     assert (1, 0) in interp._trail
@@ -77,7 +81,7 @@ def test_reset_runtime_marks_clears_pattern_too() -> None:
     assert interp._head is None
     assert interp._trail == set()
     assert interp._pattern == set()
-    assert interp._solution == set()
+    assert interp._solution == []
 
 
 def test_commands_for_event_carve_repaints_both_cells() -> None:
@@ -129,3 +133,57 @@ def test_set_solution_cells_marks_solution_color() -> None:
     interp.set_solution_cells([(0, 0)])
     draw = interp.commands_for_cells([(0, 0)], theme)
     assert any(c.color == theme.solution for c in draw.commands)
+
+
+def test_set_solution_cells_preserves_order() -> None:
+    grid = _grid([[15, 15], [15, 15]])
+    interp = _interp(grid)
+    path = [(0, 0), (1, 0), (1, 1)]
+    interp.set_solution_cells(path)
+    assert interp._solution == path
+
+
+def test_solution_path_bridges_adjacent_cells() -> None:
+    # Open corridor between (0,0) and (1,0).
+    grid = _grid([[15 ^ EAST, 15 ^ WEST]])
+    theme = default_theme()
+    interp = _interp(grid, canvas=(48, 24), desired=24, entry=(0, 0), exit_=(1, 0))
+    interp.set_solution_cells([(0, 0), (1, 0)])
+    draw = interp.full_repaint(theme)
+    sol = [c for c in draw.commands if c.color == theme.solution]
+    assert sol
+    tile = interp.tile_size
+    ox, oy = interp.offset
+    cx0, cy0 = ox + tile // 2, oy + tile // 2
+    cx1, cy1 = ox + tile + tile // 2, oy + tile // 2
+    bridged = False
+    for r in sol:
+        if r.height <= r.width and r.y <= cy0 <= r.y + r.height:
+            if r.x <= cx0 <= r.x + r.width and r.x <= cx1 <= r.x + r.width:
+                bridged = True
+                break
+    assert bridged
+
+
+def test_solution_path_painted_before_landmarks() -> None:
+    grid = _grid([[15 ^ EAST, 15 ^ WEST]])
+    theme = default_theme()
+    interp = _interp(grid, canvas=(48, 24), desired=24, entry=(0, 0), exit_=(1, 0))
+    interp.set_solution_cells([(0, 0), (1, 0)])
+    draw = interp.full_repaint(theme)
+    colors = [c.color for c in draw.commands]
+    last_sol = max(i for i, c in enumerate(colors) if c == theme.solution)
+    last_entry = max(i for i, c in enumerate(colors) if c == theme.entry)
+    assert last_entry > last_sol
+
+
+def test_entry_paints_above_trail() -> None:
+    grid = _grid([[15, 15]])
+    theme = default_theme()
+    interp = _interp(grid, canvas=(48, 24), desired=24, entry=(0, 0), exit_=(1, 0))
+    interp.apply_event(("carve", 0, 0, 1, 0))
+    draw = interp.commands_for_cells([(0, 0)], theme)
+    colors = [c.color for c in draw.commands]
+    assert theme.entry in colors
+    assert theme.trail in colors
+    assert colors.index(theme.entry) > colors.index(theme.trail)
