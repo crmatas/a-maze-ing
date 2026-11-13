@@ -88,7 +88,7 @@ class MenuScene:
             case MenuOption.SEED:
                 return f"Seed: {self._settings.seed}"
             case MenuOption.BACK:
-                return "Back to maze"
+                return "Render maze"
 
     def _composer(self) -> Draw:
         """Build one full frame: clear with theme.background + option texts."""
