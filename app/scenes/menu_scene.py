@@ -179,3 +179,4 @@ class MenuScene:
                 return None
             case Key.ESC:
                 return Quit()
+        return None
