@@ -244,6 +244,10 @@ def test_x11_keymap_covers_arrows_enter_esc() -> None:
     assert _X11_KEYMAP[65293] is Key.ENTER
     assert _X11_KEYMAP[65307] is Key.ESC
     assert _X11_KEYMAP[27] is Key.ESC
+    assert _X11_KEYMAP[114] is Key.R
+    assert _X11_KEYMAP[82] is Key.R
+    assert _X11_KEYMAP[115] is Key.S
+    assert _X11_KEYMAP[83] is Key.S
 
 
 def test_key_hook_maps_and_forwards_action() -> None:

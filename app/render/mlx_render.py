@@ -22,6 +22,10 @@ _X11_KEYMAP: dict[int, Key] = {
     65293: Key.ENTER,
     65307: Key.ESC,
     27: Key.ESC,
+    114: Key.R,
+    82: Key.R,
+    115: Key.S,
+    83: Key.S,
 }
 
 

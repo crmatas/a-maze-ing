@@ -6,7 +6,9 @@ from app.render.render_contract import (
     Idle,
     IntervalChanged,
     Key,
+    PerfectChanged,
     Quit,
+    SeedChanged,
     Text,
     ThemeChanged,
 )
@@ -18,6 +20,7 @@ from app.runtime_settings import (
     MENU_MIN_WIDTH,
     MIN_STEP_INTERVAL,
     RuntimeSettings,
+    SEED_STEP,
 )
 from app.scenes.menu_scene import MenuOption, MenuScene, _CHAR_W, _LINE_H
 from app.theme.catalog import default_theme, get_theme, next_theme_name
@@ -47,7 +50,9 @@ def test_on_enter_clears_with_theme_background() -> None:
     labels = [t.content for t in _texts(draw)]
     assert any("Theme:" in c for c in labels)
     assert any("Speed:" in c for c in labels)
-    assert "Back to maze" in labels
+    assert any("Seed:" in c for c in labels)
+    assert any("Perfect:" in c for c in labels)
+    assert "Render maze" in labels
 
 
 def test_on_enter_centers_content_on_larger_canvas() -> None:
@@ -63,10 +68,10 @@ def test_on_enter_centers_content_on_larger_canvas() -> None:
     assert all(t.x == texts[0].x for t in texts)
 
 
-def test_down_twice_enter_goes_to_maze() -> None:
+def test_down_to_back_enter_goes_to_maze() -> None:
     scene = _menu()
-    assert scene.on_key(Key.DOWN) is None
-    assert scene.on_key(Key.DOWN) is None
+    for _ in range(MenuOption.BACK.value):
+        assert scene.on_key(Key.DOWN) is None
     assert scene._selected == MenuOption.BACK.value
     assert isinstance(scene.on_key(Key.ENTER), GoToMaze)
 
@@ -107,6 +112,38 @@ def test_speed_left_right_emits_interval_changed() -> None:
     assert action_left.seconds == DEFAULT_STEP_INTERVAL - INTERVAL_STEP
 
 
+def test_seed_left_right_emits_seed_changed() -> None:
+    scene = _menu(RuntimeSettings(seed=10))
+    scene.on_key(Key.DOWN)
+    scene.on_key(Key.DOWN)  # SEED
+    action = scene.on_key(Key.RIGHT)
+    assert isinstance(action, SeedChanged)
+    assert action.seed == 10 + SEED_STEP
+
+    scene.update_settings(
+        scene._settings.with_seed(action.seed), scene._theme
+    )
+    action_left = scene.on_key(Key.LEFT)
+    assert isinstance(action_left, SeedChanged)
+    assert action_left.seed == 10
+
+
+def test_perfect_left_right_toggles() -> None:
+    scene = _menu(RuntimeSettings(perfect=True))
+    for _ in range(MenuOption.PERFECT.value):
+        scene.on_key(Key.DOWN)
+    action = scene.on_key(Key.RIGHT)
+    assert isinstance(action, PerfectChanged)
+    assert action.perfect is False
+
+    scene.update_settings(
+        scene._settings.with_perfect(False), scene._theme
+    )
+    action_left = scene.on_key(Key.LEFT)
+    assert isinstance(action_left, PerfectChanged)
+    assert action_left.perfect is True
+
+
 def test_speed_clamped_to_min_max() -> None:
     scene = _menu(RuntimeSettings(step_interval=MIN_STEP_INTERVAL))
     scene.on_key(Key.DOWN)
@@ -130,9 +167,9 @@ def test_up_down_marks_dirty_then_tick_draws_then_idle() -> None:
     draw = scene.on_tick(0.016)
     assert isinstance(draw, Draw)
     texts = _texts(draw)
-    # SPEED row (index 1) highlighted
-    assert texts[1].color == scene._theme.text_highlight
-    assert texts[0].color == scene._theme.text
+    # SPEED row highlighted
+    assert texts[MenuOption.SPEED.value].color == scene._theme.text_highlight
+    assert texts[MenuOption.THEME.value].color == scene._theme.text
 
     assert isinstance(scene.on_tick(0.016), Idle)
 

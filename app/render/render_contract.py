@@ -1,8 +1,9 @@
 """Shared types between the renderer, scenes, and the app.
 
-ThemeChanged, IntervalChanged, GoToMaze, GoToMenu, Quit are
-actions that scenes return for the app (renderer only forwards them).
-Those actions are dataclasses because Scene.on_key() returns them.
+ThemeChanged, IntervalChanged, SeedChanged, PerfectChanged, Regenerate,
+GoToMaze, GoToMenu, Quit are actions that scenes return for the app
+(renderer only forwards them). Those actions are dataclasses because
+Scene.on_key() returns them.
 """
 
 from dataclasses import dataclass
@@ -21,6 +22,8 @@ class Key(Enum):
     RIGHT = auto()
     ENTER = auto()
     ESC = auto()
+    R = auto()  # regenerate maze (#58)
+    S = auto()  # toggle solution path (#58)
 
 
 @dataclass(frozen=True)
@@ -87,6 +90,25 @@ class IntervalChanged:
 
 
 @dataclass(frozen=True)
+class SeedChanged:
+    """Change the maze RNG seed (applied by the app)."""
+
+    seed: int
+
+
+@dataclass(frozen=True)
+class PerfectChanged:
+    """Change whether the maze is perfect (no loops) or braided."""
+
+    perfect: bool
+
+
+@dataclass(frozen=True)
+class Regenerate:
+    """Rebuild the maze with the current seed and replay generation."""
+
+
+@dataclass(frozen=True)
 class GoToMaze:
     """Leave the menu and activate the maze scene."""
 
@@ -99,11 +121,6 @@ class GoToMenu:
 @dataclass(frozen=True)
 class Quit:
     """Close the application."""
-
-
-# DrawCommand = FillRect | Text
-# TickResult = Draw | Idle
-# Action = ThemeChanged | IntervalChanged | GoToMaze | GoToMenu | Quit
 
 
 class Scene(Protocol):
@@ -119,7 +136,15 @@ class Scene(Protocol):
         ...
 
     def on_key(self, key: Key) -> (
-        ThemeChanged | IntervalChanged | GoToMaze | GoToMenu | Quit | None
+        ThemeChanged
+        | IntervalChanged
+        | SeedChanged
+        | PerfectChanged
+        | Regenerate
+        | GoToMaze
+        | GoToMenu
+        | Quit
+        | None
     ):
         """Called with a logical key. May return an action for the app."""
         ...

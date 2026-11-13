@@ -18,8 +18,9 @@ def _classic() -> Theme:
         cell_floor=Color(32, 32, 42),
         trail=Color(70, 90, 140),
         head=Color(255, 120, 80),
-        entry=Color(80, 200, 120),
-        exit=Color(220, 80, 100),
+        # Bright green start / hot red goal — readable over trail/solution.
+        entry=Color(40, 255, 120),
+        exit=Color(255, 50, 70),
         solution=Color(120, 180, 255),
         pattern=Color(180, 140, 255),
     )
@@ -36,8 +37,8 @@ def _retro() -> Theme:
         cell_floor=Color(16, 28, 14),
         trail=Color(40, 90, 40),
         head=Color(255, 180, 40),
-        entry=Color(100, 220, 100),
-        exit=Color(255, 100, 60),
+        entry=Color(80, 255, 80),
+        exit=Color(255, 70, 40),
         solution=Color(140, 255, 180),
         pattern=Color(255, 200, 80),
     )
@@ -70,8 +71,8 @@ def _halloween() -> Theme:
         cell_floor=Color(28, 16, 36),
         trail=Color(90, 40, 110),
         head=Color(255, 120, 30),
-        entry=Color(80, 200, 80),
-        exit=Color(220, 40, 40),
+        entry=Color(60, 255, 90),
+        exit=Color(255, 30, 30),
         solution=Color(255, 180, 60),
         pattern=Color(160, 60, 200),
     )
@@ -88,8 +89,8 @@ def _neon() -> Theme:
         cell_floor=Color(6, 20, 40),
         trail=Color(0, 80, 140),
         head=Color(255, 0, 200),
-        entry=Color(0, 255, 180),
-        exit=Color(255, 40, 120),
+        entry=Color(0, 255, 160),
+        exit=Color(255, 20, 100),
         solution=Color(120, 220, 255),
         pattern=Color(255, 0, 255),
     )
