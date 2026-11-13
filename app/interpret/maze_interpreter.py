@@ -179,7 +179,6 @@ class MazeInterpreter:
         if masks & EAST:
             cmds.append(FillRect(px + tile - wall, py, wall, tile, theme.wall))
 
-        # Leave a margin so wall edges are not covered by overlays.
         inset = min(wall, max(0, tile // 2 - 1))
         inner_w = tile - 2 * inset
         inner_h = tile - 2 * inset
