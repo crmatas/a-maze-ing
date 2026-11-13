@@ -21,6 +21,7 @@ MAX_STEP_INTERVAL = 1.0
 INTERVAL_STEP = 0.01
 DEFAULT_SEED = 0
 SEED_STEP = 1
+DEFAULT_PERFECT = True
 
 TARGET_MAX_FPS = 30.0
 
@@ -32,6 +33,7 @@ class RuntimeSettings:
     theme_name: str = DEFAULT_THEME_NAME
     step_interval: float = DEFAULT_STEP_INTERVAL
     seed: int = DEFAULT_SEED
+    perfect: bool = DEFAULT_PERFECT
     desired_tile_size: int = DESIRED_TILE_SIZE
     window_title: str = "A-Maze-Ing"
 
@@ -47,3 +49,7 @@ class RuntimeSettings:
     def with_seed(self, seed: int) -> "RuntimeSettings":
         """Return a copy with a non-negative seed."""
         return replace(self, seed=max(0, seed))
+
+    def with_perfect(self, perfect: bool) -> "RuntimeSettings":
+        """Return a copy with a different perfect-maze flag."""
+        return replace(self, perfect=perfect)

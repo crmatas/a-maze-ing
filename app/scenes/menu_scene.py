@@ -1,7 +1,7 @@
 """Fixed-layout settings menu driven only by the keyboard.
 
 Does not talk to MiniLibX: returns Draw/Idle for the renderer and
-ThemeChanged / IntervalChanged / SeedChanged / GoToMaze / Quit for the app.
+actions (theme/speed/seed/perfect/nav) for the app to apply.
 """
 
 from enum import Enum
@@ -13,6 +13,7 @@ from app.render.render_contract import (
     Idle,
     IntervalChanged,
     Key,
+    PerfectChanged,
     Quit,
     SeedChanged,
     Text,
@@ -41,11 +42,12 @@ class MenuOption(Enum):
     THEME = 0
     SPEED = 1
     SEED = 2
-    BACK = 3
+    PERFECT = 3
+    BACK = 4
 
 
 class MenuScene:
-    """Main-menu scene: theme, speed, seed, and return to the maze.
+    """Main-menu scene: theme, speed, seed, perfect, and render maze.
 
     Option rows share one left edge; that column is centered on the canvas
     using an estimated text width (_CHAR_W). The stack is also centered
@@ -87,6 +89,8 @@ class MenuScene:
                 return f"Speed: {self._settings.step_interval:.2f}"
             case MenuOption.SEED:
                 return f"Seed: {self._settings.seed}"
+            case MenuOption.PERFECT:
+                return f"Perfect: {self._settings.perfect}"
             case MenuOption.BACK:
                 return "Render maze"
 
@@ -137,12 +141,20 @@ class MenuScene:
 
     def on_key(
         self, key: Key
-    ) -> ThemeChanged | IntervalChanged | SeedChanged | GoToMaze | Quit | None:
+    ) -> (
+        ThemeChanged
+        | IntervalChanged
+        | SeedChanged
+        | PerfectChanged
+        | GoToMaze
+        | Quit
+        | None
+    ):
         """Handle navigation and edits; return an action for the app or None.
 
         Up/Down: move selection and mark dirty (repaint on next tick).
-        Left/Right: ThemeChanged / IntervalChanged / SeedChanged.
-        Enter on Back: GoToMaze. Esc: Quit.
+        Left/Right: Theme / Speed / Seed / Perfect. Enter on Back: GoToMaze.
+        Esc: Quit.
         """
         match key:
             case Key.UP:
@@ -153,30 +165,29 @@ class MenuScene:
                 self._selected = (self._selected + 1) % len(MenuOption)
                 self._scene_change = True
                 return None
-            case Key.RIGHT:
-                if self._selected == MenuOption.THEME.value:
-                    return ThemeChanged(
-                        next_theme_name(self._settings.theme_name, 1)
-                    )
-                if self._selected == MenuOption.SPEED.value:
-                    return IntervalChanged(self._edit_speed(1))
-                if self._selected == MenuOption.SEED.value:
-                    return SeedChanged(self._edit_seed(1))
-                return None
-            case Key.LEFT:
-                if self._selected == MenuOption.THEME.value:
-                    return ThemeChanged(
-                        next_theme_name(self._settings.theme_name, -1)
-                    )
-                if self._selected == MenuOption.SPEED.value:
-                    return IntervalChanged(self._edit_speed(-1))
-                if self._selected == MenuOption.SEED.value:
-                    return SeedChanged(self._edit_seed(-1))
-                return None
+            case Key.RIGHT | Key.LEFT:
+                return self._edit_selected(key)
             case Key.ENTER:
                 if self._selected == MenuOption.BACK.value:
                     return GoToMaze()
                 return None
             case Key.ESC:
                 return Quit()
+        return None
+
+    def _edit_selected(
+        self, key: Key
+    ) -> ThemeChanged | IntervalChanged | SeedChanged | PerfectChanged | None:
+        """Left/Right edit for the highlighted option."""
+        direction = 1 if key == Key.RIGHT else -1
+        if self._selected == MenuOption.THEME.value:
+            return ThemeChanged(
+                next_theme_name(self._settings.theme_name, direction)
+            )
+        if self._selected == MenuOption.SPEED.value:
+            return IntervalChanged(self._edit_speed(direction))
+        if self._selected == MenuOption.SEED.value:
+            return SeedChanged(self._edit_seed(direction))
+        if self._selected == MenuOption.PERFECT.value:
+            return PerfectChanged(not self._settings.perfect)
         return None

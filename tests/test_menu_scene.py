@@ -6,6 +6,7 @@ from app.render.render_contract import (
     Idle,
     IntervalChanged,
     Key,
+    PerfectChanged,
     Quit,
     SeedChanged,
     Text,
@@ -50,7 +51,8 @@ def test_on_enter_clears_with_theme_background() -> None:
     assert any("Theme:" in c for c in labels)
     assert any("Speed:" in c for c in labels)
     assert any("Seed:" in c for c in labels)
-    assert "Back to maze" in labels
+    assert any("Perfect:" in c for c in labels)
+    assert "Render maze" in labels
 
 
 def test_on_enter_centers_content_on_larger_canvas() -> None:
@@ -68,9 +70,8 @@ def test_on_enter_centers_content_on_larger_canvas() -> None:
 
 def test_down_to_back_enter_goes_to_maze() -> None:
     scene = _menu()
-    assert scene.on_key(Key.DOWN) is None
-    assert scene.on_key(Key.DOWN) is None
-    assert scene.on_key(Key.DOWN) is None
+    for _ in range(MenuOption.BACK.value):
+        assert scene.on_key(Key.DOWN) is None
     assert scene._selected == MenuOption.BACK.value
     assert isinstance(scene.on_key(Key.ENTER), GoToMaze)
 
@@ -125,6 +126,22 @@ def test_seed_left_right_emits_seed_changed() -> None:
     action_left = scene.on_key(Key.LEFT)
     assert isinstance(action_left, SeedChanged)
     assert action_left.seed == 10
+
+
+def test_perfect_left_right_toggles() -> None:
+    scene = _menu(RuntimeSettings(perfect=True))
+    for _ in range(MenuOption.PERFECT.value):
+        scene.on_key(Key.DOWN)
+    action = scene.on_key(Key.RIGHT)
+    assert isinstance(action, PerfectChanged)
+    assert action.perfect is False
+
+    scene.update_settings(
+        scene._settings.with_perfect(False), scene._theme
+    )
+    action_left = scene.on_key(Key.LEFT)
+    assert isinstance(action_left, PerfectChanged)
+    assert action_left.perfect is True
 
 
 def test_speed_clamped_to_min_max() -> None:

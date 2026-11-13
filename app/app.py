@@ -18,6 +18,7 @@ from app.render.render_contract import (
     GoToMaze,
     GoToMenu,
     IntervalChanged,
+    PerfectChanged,
     Quit,
     Regenerate,
     SeedChanged,
@@ -69,7 +70,7 @@ class App:
     ) -> None:
         self._config = config
         seed = config.seed if config.seed is not None else DEFAULT_SEED
-        self._settings = RuntimeSettings(seed=seed)
+        self._settings = RuntimeSettings(seed=seed, perfect=config.perfect)
         self._theme: Theme = default_theme()
 
         if screen_size is None:
@@ -95,11 +96,12 @@ class App:
         )
 
         self._menu = MenuScene(self._settings, self._theme)
+        self._warned_no_42 = False
         self._rebuild_maze()
         self._active: MenuScene | MazeScene = self._menu
 
     def _new_generator(self) -> MazeGenerator:
-        """Build a MazeGenerator from config + the current runtime seed."""
+        """Build a MazeGenerator from config + runtime seed/perfect."""
         cfg = self._config
         return MazeGenerator(
             width=cfg.width,
@@ -107,14 +109,27 @@ class App:
             entry=cfg.entry,
             exit=cfg.exit,
             output_file=cfg.output_file,
-            perfect=cfg.perfect,
+            perfect=self._settings.perfect,
             seed=self._settings.seed,
             algorithm=cfg.algorithm,
+        )
+
+    def _maze_settings_changed(self) -> bool:
+        """True when menu seed/perfect differ from the live generator."""
+        return (
+            self._generator.seed != self._settings.seed
+            or self._generator.perfect != self._settings.perfect
         )
 
     def _rebuild_maze(self) -> None:
         """New generator + interpreter+scene; next set_scene clears/redraws."""
         self._generator = self._new_generator()
+        if not self._generator.has_42 and not self._warned_no_42:
+            print(
+                "Error: maze too small for the 42 pattern; it will be skipped",
+                file=sys.stderr,
+            )
+            self._warned_no_42 = True
         self._interpreter = MazeInterpreter(
             self._generator.grid,
             entry=self._config.entry,
@@ -136,6 +151,7 @@ class App:
             ThemeChanged
             | IntervalChanged
             | SeedChanged
+            | PerfectChanged
             | Regenerate
             | GoToMaze
             | GoToMenu
@@ -156,6 +172,10 @@ class App:
             self._settings = self._settings.with_seed(action.seed)
             self._menu.update_settings(self._settings, self._theme)
             self._maze.update_settings(self._settings, self._theme)
+        elif isinstance(action, PerfectChanged):
+            self._settings = self._settings.with_perfect(action.perfect)
+            self._menu.update_settings(self._settings, self._theme)
+            self._maze.update_settings(self._settings, self._theme)
         elif isinstance(action, Regenerate):
             self._rebuild_maze()
             self._active = self._maze
@@ -164,7 +184,7 @@ class App:
             self._active = self._menu
             self._renderer.set_scene(self._menu)
         elif isinstance(action, GoToMaze):
-            if self._generator.seed != self._settings.seed:
+            if self._maze_settings_changed():
                 self._rebuild_maze()
             self._active = self._maze
             self._renderer.set_scene(self._maze)
@@ -187,8 +207,13 @@ def load_config(path: str) -> Config:
         ValidationError: if required fields are missing or invalid.
     """
     config_path = Path(path)
-    if not config_path.is_file():
-        raise FileNotFoundError(f"Config file not found: {path}")
+    try:
+        with config_path.open("r") as f:
+            f.read()
+    except PermissionError:
+        raise PermissionError(f"Permission denied: {path}")
+    except FileNotFoundError:
+        raise FileNotFoundError(f"No such file or directory: {path}")
     return Config(_env_file=str(config_path))
 
 
@@ -206,6 +231,9 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as exc:
         print(exc, file=sys.stderr)
         return 2
+    except PermissionError as exc:
+        print(exc, file=sys.stderr)
+        return 2
     except ValidationError as exc:
         print(f"Invalid config ({path}):\n{exc}", file=sys.stderr)
         return 2
@@ -214,13 +242,13 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Invalid maze settings: {exc}", file=sys.stderr)
         return 2
 
-    print(
+    '''print(
         "A-Maze-Ing "
         f"({config.width}x{config.height}, "
         f"window={app._window_width}x{app._window_height}, "
         f"entry={config.entry}, exit={config.exit}).",
         flush=True,
-    )
+    )'''
     try:
         app.run()
     except RuntimeError as exc:

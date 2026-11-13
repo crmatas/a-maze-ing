@@ -1,11 +1,10 @@
 """Shared types between the renderer, scenes, and the app.
 
-ThemeChanged, IntervalChanged, SeedChanged, Regenerate, GoToMaze,
-GoToMenu, Quit are actions that scenes return for the app (renderer
-only forwards them). Those actions are dataclasses because
+ThemeChanged, IntervalChanged, SeedChanged, PerfectChanged, Regenerate,
+GoToMaze, GoToMenu, Quit are actions that scenes return for the app
+(renderer only forwards them). Those actions are dataclasses because
 Scene.on_key() returns them.
 """
-
 
 from dataclasses import dataclass
 from enum import Enum, auto
@@ -98,6 +97,13 @@ class SeedChanged:
 
 
 @dataclass(frozen=True)
+class PerfectChanged:
+    """Change whether the maze is perfect (no loops) or braided."""
+
+    perfect: bool
+
+
+@dataclass(frozen=True)
 class Regenerate:
     """Rebuild the maze with the current seed and replay generation."""
 
@@ -133,6 +139,7 @@ class Scene(Protocol):
         ThemeChanged
         | IntervalChanged
         | SeedChanged
+        | PerfectChanged
         | Regenerate
         | GoToMaze
         | GoToMenu

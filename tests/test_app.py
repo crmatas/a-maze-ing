@@ -15,6 +15,7 @@ from app.render.render_contract import (
     GoToMaze,
     GoToMenu,
     IntervalChanged,
+    PerfectChanged,
     Quit,
     Regenerate,
     SeedChanged,
@@ -145,6 +146,19 @@ def test_seed_change_rebuilds_on_go_to_maze(tmp_path: Path) -> None:
     app.handle_action(GoToMaze())
     assert app._generator is not old
     assert app._generator.seed == 99
+
+
+def test_perfect_change_rebuilds_on_go_to_maze(tmp_path: Path) -> None:
+    app = _app(tmp_path)
+    assert app._generator.perfect is True
+    old = app._generator
+    app.handle_action(PerfectChanged(False))
+    assert app._settings.perfect is False
+    assert app._generator is old
+    app._renderer.set_scene = lambda _scene: None  # type: ignore[method-assign]
+    app.handle_action(GoToMaze())
+    assert app._generator is not old
+    assert app._generator.perfect is False
 
 
 def test_handle_quit_requests_renderer_exit(tmp_path: Path) -> None:
