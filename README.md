@@ -49,6 +49,58 @@ A-Maze-ing is a Python maze generator and graphical visualizer. The project buil
 - Optional centered "42" pattern on larger boards.
 - Maze serialization through the project API.
 
+## Installation and execution
+
+The project requires Python 3.12 or newer and Poetry. From the repository root, install the development dependencies with:
+
+```bash
+make setup-dev
+```
+
+On Ubuntu under WSL, install MiniLibX's native dependencies first if you need the graphical backend:
+
+```bash
+make setup-wsl
+```
+
+Generate and export a maze using the available Python API:
+
+```bash
+poetry run python -c "from mazegen.maze_generator import MazeGenerator; maze = MazeGenerator(width=20, height=15, entry=(0, 0), exit=(19, 14), output_file='maze.txt', perfect=True); maze.generate(); maze.export_to_file()"
+```
+
+This writes the maze and its shortest solution to `maze.txt`. Run the test suite with:
+
+```bash
+poetry run pytest
+```
+
+The graphical application does not currently have a project entry-point script, so there is no runnable command for launching its menu yet.
+
+## Building and installing the wheel
+
+Build the distributable wheel from the repository root with Poetry:
+
+```bash
+poetry build --format wheel
+```
+
+The wheel is written to `dist/`. With the current project version, its filename is `mazegen-1.0.0-py3-none-any.whl`; the version in the filename changes when the package version is updated.
+
+To install and check the wheel in a separate Python 3.12 virtual environment:
+
+```bash
+python3 -m venv /tmp/eval_env
+source  /tmp/bin/activate
+pip install dist/mazagen-1.0.0-py3-none-any.whl
+
+python -m pip install dist/mazegen-1.0.0-py3-none-any.whl
+
+python -c "from mazegen.maze_generator import MazeGenerator; print('mazegen installed')"
+```
+
+Pip installs the wheel's declared runtime dependencies into this virtual environment. The wheel packages the reusable `mazegen` library, not the graphical application.
+
 ## Visualization and options
 
 The project includes a graphical interface built with MiniLibX where the maze is generated and displayed in a dedicated window.
