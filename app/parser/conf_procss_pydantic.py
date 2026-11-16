@@ -14,10 +14,10 @@ class Config(BaseSettings):
     seed: Optional[int] = None
     algorithm: Optional[str] = None
 
-    # Configuración para indicarle qué archivo leer
+    # Configure base path for the maze config
     model_config = SettingsConfigDict(
         env_file_encoding="utf-8",
-        extra="ignore",  # Ignora claves extra que no estén en la clase
+        extra="ignore",  # Ignore extra keys
     )
 
     @field_validator("entry", "exit", mode="before")
