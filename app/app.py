@@ -238,8 +238,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Invalid config ({path}):\n{exc}", file=sys.stderr)
         return 2
     except ValueError as exc:
-        # MazeGenerator model validation (bounds, entry/exit, pattern, …).
-        print(f"Invalid maze settings: {exc}", file=sys.stderr)
+        # MazeGenerator validation and render constraints (screen fit).
+        print(f"Invalid maze or display settings: {exc}", file=sys.stderr)
         return 2
 
     '''print(

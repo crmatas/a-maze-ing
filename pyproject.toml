@@ -23,6 +23,12 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 packages = [{include = "mazegen"}]
 
+[tool.poetry.group.app]
+optional = true
+
+[tool.poetry.group.app.dependencies]
+mlx = { path = "app/mlx-2.2/ubuntu/mlx-2.2-py3-none-any.whl" }
+
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
@@ -40,4 +46,3 @@ pytest = ">=9.1.1,<10.0.0"
 mypy = ">=2.4.0,<3.0.0"
 flake8 = ">=7.4.1,<8.0.0"
 pre-commit = ">=4.6.2,<5.0.0"
-mlx = { path = "app/mlx-2.2/ubuntu/mlx-2.2-py3-none-any.whl" }

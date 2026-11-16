@@ -51,17 +51,30 @@ A-Maze-ing is a Python maze generator and graphical visualizer. The project buil
 
 ## Installation and execution
 
-The project requires Python 3.12 or newer and Poetry. From the repository root, install the development dependencies with:
+The project requires Python 3.12 or newer. From the repository root, install Python 3.12 and Poetry for your user, then install the application and development dependencies with:
 
 ```bash
+make install
 make setup-dev
 ```
+
+The Python and Poetry setup uses `uv` in the user's home directory and does not require `sudo`.
 
 On Ubuntu under WSL, install MiniLibX's native dependencies first if you need the graphical backend:
 
 ```bash
 make setup-wsl
 ```
+
+Launch the application with the default configuration:
+
+```bash
+make run
+```
+
+The renderer requires at least 4 pixels per maze cell. If the configured maze
+cannot fit on the detected display at that minimum size, the application exits
+with a clear error instead of silently drawing part of the maze off-screen.
 
 Generate and export a maze using the available Python API:
 
@@ -74,8 +87,6 @@ This writes the maze and its shortest solution to `maze.txt`. Run the test suite
 ```bash
 poetry run pytest
 ```
-
-The graphical application does not currently have a project entry-point script, so there is no runnable command for launching its menu yet.
 
 ## Building and installing the wheel
 

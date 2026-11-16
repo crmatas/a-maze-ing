@@ -9,6 +9,7 @@ from app.render.render_contract import (Color, Draw, Idle, FillRect,
 from app.runtime_settings import (
     FALLBACK_MAX_HEIGHT,
     FALLBACK_MAX_WIDTH,
+    MIN_USABLE_TILE_SIZE,
     TARGET_MAX_FPS,
 )
 
@@ -253,7 +254,17 @@ def compute_window_size(
     screen_w: int,
     screen_h: int,
 ) -> tuple[int, int]:
-    """Clamp ideal maze window between menu minimum and screen maximum."""
+    """Fit the maze window on screen or reject grids below usable cell size."""
+
+    min_maze_width = maze_width * MIN_USABLE_TILE_SIZE
+    min_maze_height = maze_height * MIN_USABLE_TILE_SIZE
+    if min_maze_width > screen_w or min_maze_height > screen_h:
+        raise ValueError(
+            f"Maze {maze_width}x{maze_height} cannot fit on the "
+            f"{screen_w}x{screen_h} display at the minimum cell size of "
+            f"{MIN_USABLE_TILE_SIZE}px; it requires at least "
+            f"{min_maze_width}x{min_maze_height}px."
+        )
 
     width = max(menu_min_w, maze_width * desired_tile)
     height = max(menu_min_h, maze_height * desired_tile)
