@@ -1,8 +1,8 @@
-*This project has been created as part of the 42 curriculum by crmatas-.*
+*This project has been created as part of the 42 curriculum by lupin, crmatas-.*
 
 # A-Maze-ing
 
-## Overview
+## Description
 
 A-Maze-ing is a Python project to generate and display mazes from a configuration file. The generator will support perfect mazes, with a unique path between cells, and non-perfect mazes, with loops for more flexible navigation. A generated maze will be written to an output file and shown in a visual representation.
 
@@ -35,6 +35,50 @@ Examples:
 [FIX] Keep shared walls consistent
 [DOCS] Describe the configuration format
 ```
+# Configuration File Format
+
+The application reads a plain-text configuration file (by default `config.txt`) containing key-value pairs formatted as `KEY=VALUE`.
+
+## Parsing Rules
+
+- **Syntax:** Each line must define one parameter using `KEY=VALUE`.
+- **Comments:** Any line starting with `#` is treated as a comment and ignored.
+- **Blank lines:** Empty lines or lines containing only whitespace are ignored.
+- **Error Handling:** If a mandatory key is missing, a value is malformed,
+or coordinates are out of bounds, the program exits cleanly with an informative error message without throwing a Python `Traceback`.
+
+## Mandatory Keys
+
+| Key | Format | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `WIDTH` | Positive integer | Width of the maze in cells | `WIDTH=20` |
+| `HEIGHT` | Positive integer | Height of the maze in cells | `HEIGHT=15` |
+| `ENTRY` | `x,y` tuple | Starting coordinates (must be within bounds) | `ENTRY=0,0` |
+| `EXIT` | `x,y` tuple | Destination coordinates (must be within bounds) | `EXIT=19,14` |
+| `OUTPUT_FILE` | String (filename) | Output path to save the hexadecimal maze and solution | `OUTPUT_FILE=output.txt` |
+| `PERFECT` | `True` / `False` | `True` for a single-path maze without loops; `False` for a Pac-Man style playable board with cycles | `PERFECT=True` |
+
+## Optional Keys
+
+| Key | Format | Description | Example |
+| :--- | :--- | :--- | :--- |
+| `SEED` | Integer | Random seed for deterministic and reproducible maze generation | `SEED=42` |
+
+---
+
+## Default `config.txt` Example
+
+```ini
+# Default configuration for A-Maze-ing
+
+WIDTH=20
+HEIGHT=15
+ENTRY=0,0
+EXIT=19,14
+OUTPUT_FILE=output.txt
+PERFECT=True
+SEED=42
+```
 
 ## Project summary
 
@@ -49,7 +93,7 @@ A-Maze-ing is a Python maze generator and graphical visualizer. The project buil
 - Optional centered "42" pattern on larger boards.
 - Maze serialization through the project API.
 
-## Installation and execution
+## Installation
 
 The project requires Python 3.12 or newer. From the repository root, install Python 3.12 and Poetry for your user, then install the application and development dependencies with:
 
@@ -88,6 +132,13 @@ This writes the maze and its shortest solution to `maze.txt`. Run the test suite
 poetry run pytest
 ```
 
+## Execution 
+Entry Point, The main application entry point is `a_maze_ing.py`.
+It parses the configuration file, invokes the \`mazegen\` library to generate and export the maze, and launches the interactive graphical menu. To launch the application using *Poetry*: 
+```bash
+poetry run python a_maze_ing.py config.txt
+```
+
 ## Building and installing the wheel
 
 Build the distributable wheel from the repository root with Poetry:
@@ -103,7 +154,7 @@ To install and check the wheel in a separate Python 3.12 virtual environment:
 ```bash
 python3 -m venv /tmp/eval_env
 source  /tmp/bin/activate
-pip install dist/mazagen-1.0.0-py3-none-any.whl
+pip install dist/mazegen-1.0.0-py3-none-any.whl
 
 python -m pip install dist/mazegen-1.0.0-py3-none-any.whl
 
