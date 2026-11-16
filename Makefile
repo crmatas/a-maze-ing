@@ -8,50 +8,50 @@ LOCAL_BIN := $(HOME)/.local/bin
 export PATH := $(LOCAL_BIN):$(PATH)
 
 help:
-	@echo "make install    	-> instalar Python 3.12 y dependencias de ejecucion sin sudo"
-	@echo "make setup-dev 	-> instalar dependencias de ejecucion, dev y hooks"
-	@echo "make setup-wsl 	-> instalar dependencias nativas de MiniLibX en Ubuntu/WSL"
-	@echo "make setup-gh  	-> instalar/actualizar gh y autenticarlo"
-	@echo "make issue     	-> crear una issue interactiva (requiere gh autenticado)"
-	@echo "make pr        	-> crear un pull request (requiere gh autenticado)"
-	@echo "make lint        -> ejecutar flake8 y mypy con los flags requeridos"
-	@echo "make lint-strict -> ejecutar flake8 y mypy --strict"
-	@echo "make run         -> ejecutar la aplicacion con config.txt"
-	@echo "make debug      	-> ejecutar a_maze_ing.py con pdb"
-	@echo "make clean      	-> limpiar archivos generados"
+	@echo "make install     -> install Python 3.12 and runtime dependencies without sudo"
+	@echo "make setup-dev   -> install runtime, dev, and hook dependencies"
+	@echo "make setup-wsl   -> install native MiniLibX dependencies on Ubuntu/WSL"
+	@echo "make setup-gh    -> install/update gh and authenticate it"
+	@echo "make issue       -> create an interactive issue (requires authenticated gh)"
+	@echo "make pr          -> create a pull request (requires authenticated gh)"
+	@echo "make lint        -> run flake8 and mypy with the required flags"
+	@echo "make lint-strict -> run flake8 and mypy --strict"
+	@echo "make run         -> run the application with config.txt"
+	@echo "make debug       -> run a_maze_ing.py with pdb"
+	@echo "make clean       -> clean generated files"
 
 
 clean:
-	@echo "Limpiando archivos generados..."
+	@echo "Cleaning generated files..."
 	@rm -rf __pycache__ .pytest_cache
-	@echo "Limpieza finalizada."
+	@echo "Cleanup complete."
 
 check-poetry:
-	@command -v poetry >/dev/null || { echo "Falta Poetry: https://python-poetry.org/docs/#installation"; exit 1; }
+	@command -v poetry >/dev/null || { echo "Poetry is missing: https://python-poetry.org/docs/#installation"; exit 1; }
 
 check-apt:
-	@command -v apt-get >/dev/null || { echo "Este target requiere Ubuntu o Debian con APT."; exit 1; }
+	@command -v apt-get >/dev/null || { echo "This target requires Ubuntu or Debian with APT."; exit 1; }
 	@. /etc/os-release; \
-	case "$$ID" in ubuntu|debian) ;; *) echo "Distribucion no soportada: $$ID."; exit 1 ;; esac
+	case "$$ID" in ubuntu|debian) ;; *) echo "Unsupported distribution: $$ID."; exit 1 ;; esac
 
 check-wsl: check-apt
-	@grep -qi microsoft /proc/sys/kernel/osrelease || { echo "Este target debe ejecutarse dentro de WSL."; exit 1; }
+	@grep -qi microsoft /proc/sys/kernel/osrelease || { echo "This target must be run inside WSL."; exit 1; }
 	@. /etc/os-release; \
-	[ "$$ID" = ubuntu ] || { echo "Este target requiere Ubuntu en WSL; detectado: $$ID."; exit 1; }
+	[ "$$ID" = ubuntu ] || { echo "This target requires Ubuntu on WSL; detected: $$ID."; exit 1; }
 
 install:
 	@if ! command -v uv >/dev/null 2>&1; then \
-		command -v curl >/dev/null 2>&1 || { echo "Falta curl para instalar uv sin sudo."; exit 1; }; \
-		echo "Instalando uv en $(LOCAL_BIN)..."; \
+		command -v curl >/dev/null 2>&1 || { echo "curl is required to install uv without sudo."; exit 1; }; \
+		echo "Installing uv in $(LOCAL_BIN)..."; \
 		curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$(LOCAL_BIN)" sh; \
 	fi
 	uv python install 3.12
 	@if ! command -v poetry >/dev/null 2>&1; then \
-		echo "Instalando Poetry para el usuario actual..."; \
+		echo "Installing Poetry for the current user..."; \
 		uv tool install poetry --python 3.12; \
 	fi
 	poetry env use "$$(uv python find 3.12)"
-	@echo "Instalando dependencias de ejecucion..."
+	@echo "Installing runtime dependencies..."
 	poetry install --only main,app
 
 lint: check-poetry
@@ -63,23 +63,23 @@ lint-strict: check-poetry
 	poetry run mypy . --strict
 
 debug: check-poetry
-	@echo "Ejecutando a_maze_ing.py con pdb..."
+	@echo "Running a_maze_ing.py with pdb..."
 	poetry run python -m pdb a_maze_ing.py config.txt
 
 run: check-poetry
 	poetry run python a_maze_ing.py config.txt
 
 setup-dev: check-poetry
-	@echo "Configurando entorno de desarrollo..."
+	@echo "Setting up the development environment..."
 	poetry install --with app,dev
 	poetry run pre-commit install
-	@echo "Entorno de desarrollo listo."
+	@echo "Development environment is ready."
 
 setup-wsl: check-wsl
-	@echo "Configurando entorno WSL..."
+	@echo "Setting up the WSL environment..."
 	sudo apt-get update
 	sudo apt-get install -y libxcb-keysyms1 libvulkan1
-	@echo "Dependencias nativas de MiniLibX instaladas."
+	@echo "Native MiniLibX dependencies installed."
 
 setup-gh:
 	@./dev-utils/scripts/setup_gh.sh
@@ -87,27 +87,27 @@ setup-gh:
 
 gh-auth:
 	@if ! gh auth status >/dev/null 2>&1; then \
-		echo "Autenticando gh con scopes repo y project..."; \
+		echo "Authenticating gh with repo and project scopes..."; \
 		gh auth login --scopes repo,project; \
 	else \
 		status="$$(gh auth status 2>&1)"; \
 		if ! printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'repo'" \
 			|| ! printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'project'"; then \
-			echo "Actualizando scopes de gh a repo,project..."; \
+			echo "Updating gh scopes to repo,project..."; \
 			gh auth refresh --scopes repo,project; \
 		else \
-			echo "gh ya esta autenticado con los scopes necesarios."; \
+			echo "gh is already authenticated with the required scopes."; \
 		fi; \
 	fi
 
 check-gh:
-	@command -v gh >/dev/null || { echo "Falta gh; ejecuta 'make setup-gh'."; exit 1; }
-	@gh auth status >/dev/null 2>&1 || { echo "gh no esta autenticado; ejecuta 'make setup-gh'."; exit 1; }
+	@command -v gh >/dev/null || { echo "gh is missing; run 'make setup-gh'."; exit 1; }
+	@gh auth status >/dev/null 2>&1 || { echo "gh is not authenticated; run 'make setup-gh'."; exit 1; }
 	@status="$$(gh auth status 2>&1)"; \
 	printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'repo'" \
-		|| { echo "Falta el scope repo; ejecuta 'make setup-gh'."; exit 1; }; \
+		|| { echo "Missing the repo scope; run 'make setup-gh'."; exit 1; }; \
 	printf '%s\n' "$$status" | grep "Token scopes" | grep -q "'project'" \
-		|| { echo "Falta el scope project; ejecuta 'make setup-gh'."; exit 1; }
+		|| { echo "Missing the project scope; run 'make setup-gh'."; exit 1; }
 
 issue: check-gh
 	@./dev-utils/scripts/new_issue.sh
