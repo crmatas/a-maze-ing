@@ -22,7 +22,7 @@ class Config(BaseSettings):
 
     @field_validator("entry", "exit", mode="before")
     @classmethod
-    def parse_coords(cls, value):
+    def parse_coords(cls, value: str) -> tuple[int, ...]:
         if isinstance(value, str):
             return tuple(map(int, value.split(",")))
         return value

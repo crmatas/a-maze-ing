@@ -32,6 +32,9 @@ mlx = { path = "app/mlx-2.2/ubuntu/mlx-2.2-py3-none-any.whl" }
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
+exclude = [
+    "^\\.venv/",
+]
 
 [tool.pydantic-mypy]
 init_forbid_extra = true
