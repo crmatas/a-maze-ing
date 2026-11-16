@@ -23,7 +23,7 @@ help:
 
 clean:
 	@echo "Limpiando archivos generados..."
-	@rm -rf __pycache__ *.pyc *.pyo .pytest_cache
+	@rm -rf __pycache__ .pytest_cache
 	@echo "Limpieza finalizada."
 
 check-poetry:
