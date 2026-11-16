@@ -41,7 +41,7 @@ def contrast_ratio(fg: Color, bg: Color) -> float:
         if channel <= 0.04045:
             return channel / 12.92
         else:
-            return (((channel + 0.055) / 1.055) ** 2.4)
+            return float(((channel + 0.055) / 1.055) ** 2.4)
 
     # Normalize to 0-1
     normalize_fg: dict[str, float] = {
