@@ -5,8 +5,7 @@ Run the commands below from the repository root.
 
 ## Requirements
 
-- Python 3.12 or newer.
-- Poetry.
+- `make install` installs Python 3.12 and Poetry for the current user using `uv`; it does not require `sudo`.
 - Ubuntu on WSL for installing MiniLibX's native dependencies.
 
 The graphical MiniLibX setup is optional if you are only working on code that does not use its display backend.
@@ -19,26 +18,29 @@ On Ubuntu under WSL, install the native MiniLibX dependencies:
 make setup-wsl
 ```
 
-Install the project and development tools, and configure the Git hooks:
-
-```bash
-make setup-dev
-```
-
-`setup-dev` runs `poetry install --with dev` and `poetry run pre-commit install`. The WSL target uses `sudo apt-get` to install `libxcb-keysyms1` and `libvulkan1`.
-
-To install only the main dependency group, use:
+Install Python 3.12, Poetry, and the application dependencies (including MiniLibX):
 
 ```bash
 make install
 ```
 
+Then install the development tools and configure the Git hooks:
+
+```bash
+make setup-dev
+```
+
+`setup-dev` installs the application and development dependency groups, then runs `poetry run pre-commit install`. The WSL target uses `sudo apt-get` to install `libxcb-keysyms1` and `libvulkan1`.
+
+`make setup-dev` requires this setup because it installs the development dependencies and Git hooks through Poetry.
+
 ## Poetry configuration
 
 Project and tool configuration lives in `pyproject.toml`; this repository does not use a `poetry.toml` file.
 
-- `[project]` contains package metadata, sets the minimum Python version to 3.12, and declares NumPy as a runtime dependency.
-- `[tool.poetry.group.dev.dependencies]` contains development dependencies: `pytest`, `mypy`, `flake8`, `pre-commit`, and the local Ubuntu MiniLibX wheel. `pydantic-settings` is a runtime dependency because the application parser imports it.
+- `[project]` contains package metadata, sets the minimum Python version to 3.12, and declares the library's dependencies.
+- `[tool.poetry.group.app.dependencies]` contains the local Ubuntu MiniLibX wheel required by the graphical application.
+- `[tool.poetry.group.dev.dependencies]` contains development tools: `pytest`, `mypy`, `flake8`, and `pre-commit`.
 - `[tool.mypy]` enables the Pydantic plugin.
 - `[[tool.mypy.overrides]]` ignores missing type stubs for `mlx` when mypy is run with the project configuration alone. The `make lint` target also passes `--ignore-missing-imports`, which suppresses missing-import diagnostics globally for that command.
 - `[tool.pydantic-mypy]` configures the Pydantic mypy plugin.
@@ -82,9 +84,10 @@ Run `make` to print the Makefile help. The current targets are:
 
 | Command | Purpose |
 | --- | --- |
-| `make install` | Install only main dependencies. |
-| `make setup-dev` | Install development dependencies and Git hooks. |
+| `make install` | Install Python 3.12 and the application runtime dependencies, including MiniLibX. |
+| `make setup-dev` | Install application and development dependencies, then Git hooks. |
 | `make setup-wsl` | Install MiniLibX native dependencies on Ubuntu under WSL. |
+| `make run` | Run `a_maze_ing.py config.txt`. |
 | `make lint` | Run flake8 and mypy with the required lint flags. |
 | `make lint-strict` | Run flake8 and mypy in strict mode. |
 | `make debug` | Start `a_maze_ing.py config.txt` under Python's debugger. |

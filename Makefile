@@ -1,18 +1,22 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup install setup-dev setup-wsl setup-gh check-poetry check-apt check-wsl check-gh gh-auth issue pr lint lint-strict debug clean
+.PHONY: help setup install setup-dev setup-wsl setup-gh check-poetry check-apt check-wsl check-gh gh-auth issue pr lint lint-strict debug run clean
 
 GH_KEYRING := /etc/apt/keyrings/githubcli-archive-keyring.gpg
 GH_SOURCE := /etc/apt/sources.list.d/github-cli.list
+LOCAL_BIN := $(HOME)/.local/bin
+
+export PATH := $(LOCAL_BIN):$(PATH)
 
 help:
-	@echo "make install    	-> instalar dependencias principales"
-	@echo "make setup-dev 	-> instalar dependencias dev y hooks"
+	@echo "make install    	-> instalar Python 3.12 y dependencias de ejecucion sin sudo"
+	@echo "make setup-dev 	-> instalar dependencias de ejecucion, dev y hooks"
 	@echo "make setup-wsl 	-> instalar dependencias nativas de MiniLibX en Ubuntu/WSL"
 	@echo "make setup-gh  	-> instalar/actualizar gh y autenticarlo"
 	@echo "make issue     	-> crear una issue interactiva (requiere gh autenticado)"
 	@echo "make pr        	-> crear un pull request (requiere gh autenticado)"
 	@echo "make lint        -> ejecutar flake8 y mypy con los flags requeridos"
 	@echo "make lint-strict -> ejecutar flake8 y mypy --strict"
+	@echo "make run         -> ejecutar la aplicacion con config.txt"
 	@echo "make debug      	-> ejecutar a_maze_ing.py con pdb"
 	@echo "make clean      	-> limpiar archivos generados"
 
@@ -35,9 +39,20 @@ check-wsl: check-apt
 	@. /etc/os-release; \
 	[ "$$ID" = ubuntu ] || { echo "Este target requiere Ubuntu en WSL; detectado: $$ID."; exit 1; }
 
-install: check-poetry
-	@echo "Instalando dependencias principales..."
-	poetry install --only main
+install:
+	@if ! command -v uv >/dev/null 2>&1; then \
+		command -v curl >/dev/null 2>&1 || { echo "Falta curl para instalar uv sin sudo."; exit 1; }; \
+		echo "Instalando uv en $(LOCAL_BIN)..."; \
+		curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="$(LOCAL_BIN)" sh; \
+	fi
+	uv python install 3.12
+	@if ! command -v poetry >/dev/null 2>&1; then \
+		echo "Instalando Poetry para el usuario actual..."; \
+		uv tool install poetry --python 3.12; \
+	fi
+	poetry env use "$$(uv python find 3.12)"
+	@echo "Instalando dependencias de ejecucion..."
+	poetry install --only main,app
 
 lint: check-poetry
 	poetry run flake8 .
@@ -51,9 +66,12 @@ debug: check-poetry
 	@echo "Ejecutando a_maze_ing.py con pdb..."
 	poetry run python -m pdb a_maze_ing.py config.txt
 
+run: check-poetry
+	poetry run python a_maze_ing.py config.txt
+
 setup-dev: check-poetry
 	@echo "Configurando entorno de desarrollo..."
-	poetry install --with dev
+	poetry install --with app,dev
 	poetry run pre-commit install
 	@echo "Entorno de desarrollo listo."
 
